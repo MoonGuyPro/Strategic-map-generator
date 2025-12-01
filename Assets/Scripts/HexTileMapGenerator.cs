@@ -4,7 +4,6 @@ using UnityEngine.Tilemaps;
 
 public class HexMapGenerator : MonoBehaviour
 {
-    // Wewnêtrzna klasa danych - Unity siê do niej nie czepia
     [System.Serializable]
     private class HexCell
     {
@@ -21,6 +20,10 @@ public class HexMapGenerator : MonoBehaviour
     public TileBase grassTile;
     public TileBase waterTile;
     public TileBase spawnTile;
+
+    [Header("Kopalnie")]
+    public TileBase mineTile;      // tile kopalni
+    public int mineCount = 5;      // ile kopalni wygenerowaæ
 
     [Header("Rozmiar mapy")]
     public int width = 20;
@@ -46,14 +49,15 @@ public class HexMapGenerator : MonoBehaviour
             Debug.LogError("HexMapGenerator: tilemap nie jest przypisana!");
             return;
         }
-        if (grassTile == null || waterTile == null || spawnTile == null)
+        if (grassTile == null || waterTile == null || spawnTile == null || mineTile == null)
         {
-            Debug.LogError("HexMapGenerator: nie wszystkie TileBase s¹ przypisane!");
+            Debug.LogError("HexMapGenerator: nie wszystkie TileBase s¹ przypisane (grass/water/spawn/mine)!");
             return;
         }
 
         GenerateMap();
         GeneratePlayerSpawns();
+        GenerateMines();
     }
 
     // ------------------------------------------------------------
@@ -79,7 +83,7 @@ public class HexMapGenerator : MonoBehaviour
                     coord = pos,
                     isWater = isWater,
                     passable = !isWater,
-                    ownerId = 0,
+                    ownerId = 0,      // 0 = neutral
                     hasMine = false,
                     isSpawn = false
                 };
@@ -159,6 +163,41 @@ public class HexMapGenerator : MonoBehaviour
     }
 
     // ------------------------------------------------------------
+    // GENEROWANIE KOPALNI
+    // ------------------------------------------------------------
+    void GenerateMines()
+    {
+        // kandydaci: l¹d, przechodnie, nie-spawn, bez kopalni
+        List<HexCell> candidates = new List<HexCell>();
+        foreach (var kvp in cells)
+        {
+            HexCell cell = kvp.Value;
+            if (cell.passable && !cell.isWater && !cell.isSpawn && !cell.hasMine)
+                candidates.Add(cell);
+        }
+
+        if (candidates.Count == 0)
+        {
+            Debug.LogWarning("Brak pól, na których mo¿na postawiæ kopalnie.");
+            return;
+        }
+
+        int minesToPlace = Mathf.Min(mineCount, candidates.Count);
+
+        for (int i = 0; i < minesToPlace; i++)
+        {
+            int index = Random.Range(0, candidates.Count);
+            HexCell cell = candidates[index];
+            candidates.RemoveAt(index);
+
+            cell.hasMine = true;
+            tilemap.SetTile(cell.coord, mineTile);
+        }
+
+        Debug.Log($"Wygenerowano {minesToPlace} kopalni.");
+    }
+
+    // ------------------------------------------------------------
     // DYSTANS NA HEXACH (odd-r / point-top)
     // ------------------------------------------------------------
     int HexDistanceOddR(Vector3Int a, Vector3Int b)
@@ -178,16 +217,5 @@ public class HexMapGenerator : MonoBehaviour
         int z = h.y;
         int y = -x - z;
         return new Vector3Int(x, y, z);
-    }
-
-    // ------------------------------------------------------------
-    // PRZYK£AD: pobranie danych pola po klikniêciu
-    // ------------------------------------------------------------
-    public object GetCellAtWorldPosition(Vector3 worldPos)
-    {
-        Vector3Int cellPos = tilemap.WorldToCell(worldPos);
-        if (cells.TryGetValue(cellPos, out HexCell cell))
-            return cell;
-        return null;
     }
 }
