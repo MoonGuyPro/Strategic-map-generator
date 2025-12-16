@@ -152,6 +152,8 @@ MonoBehaviour:
   grassTile: {fileID: 11400000, guid: 0f7be247a798aed4e8f4f4b80d53e196, type: 2}
   waterTile: {fileID: 11400000, guid: 8159beeb24e86ef48af9c5d32499d627, type: 2}
   spawnTile: {fileID: 11400000, guid: 3a55a6ef722978149a260ffb86757e3c, type: 2}
+  mineTile: {fileID: 11400000, guid: 9e5cd1888a26c634c8f3984b2719f3dc, type: 2}
+  mineCount: 5
   width: 20
   height: 20
   waterProbability: 0.1
@@ -324,7 +326,7 @@ Camera:
   far clip plane: 1000
   field of view: 34
   orthographic: 1
-  orthographic size: 5
+  orthographic size: 6
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -349,7 +351,7 @@ Transform:
   m_GameObject: {fileID: 519420028}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -10}
+  m_LocalPosition: {x: 7.34, y: 5.38, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -565,6 +567,104 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &873840218
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 873840220}
+  - component: {fileID: 873840219}
+  m_Layer: 0
+  m_Name: BotController (1)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &873840219
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 873840218}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0490714f6471c8e468106a8f7223b49a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BotController
+  map: {fileID: 225472700}
+  botTile: {fileID: 11400000, guid: 2ce586f732854a9418012b73c4033288, type: 2}
+  botOwnerId: 1
+  spawnNumber: 1
+  expansionInterval: 1
+--- !u!4 &873840220
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 873840218}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 4.6453, y: 1.46645, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1851286721
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1851286723}
+  - component: {fileID: 1851286722}
+  m_Layer: 0
+  m_Name: BotController
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1851286722
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1851286721}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0490714f6471c8e468106a8f7223b49a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BotController
+  map: {fileID: 225472700}
+  botTile: {fileID: 11400000, guid: f570949cdbe5cee43a95ac972755bcce, type: 2}
+  botOwnerId: 2
+  spawnNumber: 2
+  expansionInterval: 1
+--- !u!4 &1851286723
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1851286721}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 4.6453, y: 1.46645, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -573,3 +673,5 @@ SceneRoots:
   - {fileID: 619394802}
   - {fileID: 306375905}
   - {fileID: 225472701}
+  - {fileID: 1851286723}
+  - {fileID: 873840220}

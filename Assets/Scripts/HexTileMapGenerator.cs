@@ -218,4 +218,79 @@ public class HexMapGenerator : MonoBehaviour
         int y = -x - z;
         return new Vector3Int(x, y, z);
     }
+
+    // ------------------------------------------------------------
+    // PUBLICZNE API DLA BOTA
+    // ------------------------------------------------------------
+
+    // Czy pole istnieje i jest l¹dowe/przechodnie?
+    public bool IsPassableLand(Vector3Int coord)
+    {
+        if (cells.TryGetValue(coord, out HexCell cell))
+        {
+            return cell.passable && !cell.isWater;
+        }
+        return false;
+    }
+
+    // Zwraca ownerId (0 = neutral, 1/2 = gracze itd.)
+    public int GetOwnerId(Vector3Int coord)
+    {
+        if (cells.TryGetValue(coord, out HexCell cell))
+        {
+            return cell.ownerId;
+        }
+        return -1;
+    }
+
+    // Ustawia w³aœciciela i podmienia Tile na podany
+    public void SetOwnerAndTile(Vector3Int coord, int newOwnerId, TileBase tile)
+    {
+        if (cells.TryGetValue(coord, out HexCell cell))
+        {
+            cell.ownerId = newOwnerId;
+            tilemap.SetTile(coord, tile);
+        }
+    }
+
+    // Zwraca listê s¹siadów (odd-r point-top)
+    public List<Vector3Int> GetNeighbours(Vector3Int coord)
+    {
+        List<Vector3Int> result = new List<Vector3Int>();
+
+        bool isOdd = (coord.y & 1) == 1;
+
+        // odd-r neighbours
+        Vector3Int[] evenOffsets =
+        {
+            new Vector3Int(+1,  0, 0),
+            new Vector3Int( 0, +1, 0),
+            new Vector3Int(-1, +1, 0),
+            new Vector3Int(-1,  0, 0),
+            new Vector3Int(-1, -1, 0),
+            new Vector3Int( 0, -1, 0),
+        };
+
+        Vector3Int[] oddOffsets =
+        {
+            new Vector3Int(+1,  0, 0),
+            new Vector3Int(+1, +1, 0),
+            new Vector3Int( 0, +1, 0),
+            new Vector3Int(-1,  0, 0),
+            new Vector3Int( 0, -1, 0),
+            new Vector3Int(+1, -1, 0),
+        };
+
+        var offsets = isOdd ? oddOffsets : evenOffsets;
+
+        foreach (var off in offsets)
+        {
+            Vector3Int n = coord + off;
+            if (cells.ContainsKey(n))
+                result.Add(n);
+        }
+
+        return result;
+    }
+
 }
