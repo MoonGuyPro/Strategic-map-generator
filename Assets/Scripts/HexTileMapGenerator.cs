@@ -4,17 +4,6 @@ using UnityEngine.Tilemaps;
 
 public class HexMapGenerator : MonoBehaviour
 {
-    [System.Serializable]
-    private class HexCell
-    {
-        public Vector3Int coord;   // wspó³rzêdne w Tilemapie
-        public bool isWater;
-        public bool passable;
-        public int ownerId;        // 0 = neutral, 1 = player1, 2 = player2...
-        public bool hasMine;
-        public bool isSpawn;
-    }
-
     [Header("Tilemap i Tiles")]
     public Tilemap tilemap;
     public TileBase grassTile;
@@ -22,8 +11,8 @@ public class HexMapGenerator : MonoBehaviour
     public TileBase spawnTile;
 
     [Header("Kopalnie")]
-    public TileBase mineTile;      // tile kopalni
-    public int mineCount = 5;      // ile kopalni wygenerowaæ
+    public TileBase mineTile;
+    public int mineCount = 5;
 
     [Header("Rozmiar mapy")]
     public int width = 20;
@@ -35,8 +24,12 @@ public class HexMapGenerator : MonoBehaviour
     [Header("Spawny graczy")]
     public int minSpawnDistance = 10;
 
+    [Header("Debug")]
+    [SerializeField] private List<HexCell> debugCells = new List<HexCell>();
+    public IReadOnlyList<HexCell> DebugCells => debugCells;
+
     // Stan gry
-    Dictionary<Vector3Int, HexCell> cells = new Dictionary<Vector3Int, HexCell>();
+    private Dictionary<Vector3Int, HexCell> cells = new Dictionary<Vector3Int, HexCell>();
 
     // Dla podgl¹du w Inspectorze
     public Vector3Int spawnPosPlayer1;
@@ -58,6 +51,8 @@ public class HexMapGenerator : MonoBehaviour
         GenerateMap();
         GeneratePlayerSpawns();
         GenerateMines();
+
+        RefreshDebugList();
     }
 
     // ------------------------------------------------------------
@@ -78,14 +73,17 @@ public class HexMapGenerator : MonoBehaviour
                 TileBase tileToPlace = isWater ? waterTile : grassTile;
                 tilemap.SetTile(pos, tileToPlace);
 
-                var cell = new HexCell
+                int population = isWater ? 0 : Random.Range(10, 101); // 10–100
+
+                HexCell cell = new HexCell
                 {
                     coord = pos,
                     isWater = isWater,
                     passable = !isWater,
-                    ownerId = 0,      // 0 = neutral
+                    ownerId = 0,           // 0 = neutral
                     hasMine = false,
-                    isSpawn = false
+                    isSpawn = false,
+                    populationNumber = population
                 };
 
                 cells[pos] = cell;
@@ -149,8 +147,8 @@ public class HexMapGenerator : MonoBehaviour
         // Ustawiamy stan
         spawn1.isSpawn = true;
         spawn2.isSpawn = true;
-        spawn1.ownerId = 1;  // gracz 1
-        spawn2.ownerId = 2;  // gracz 2
+        spawn1.ownerId = 1;  // gracz/bot 1
+        spawn2.ownerId = 2;  // gracz/bot 2
 
         spawnPosPlayer1 = spawn1.coord;
         spawnPosPlayer2 = spawn2.coord;
@@ -197,6 +195,12 @@ public class HexMapGenerator : MonoBehaviour
         Debug.Log($"Wygenerowano {minesToPlace} kopalni.");
     }
 
+    void RefreshDebugList()
+    {
+        debugCells.Clear();
+        debugCells.AddRange(cells.Values);
+    }
+
     // ------------------------------------------------------------
     // DYSTANS NA HEXACH (odd-r / point-top)
     // ------------------------------------------------------------
@@ -210,7 +214,6 @@ public class HexMapGenerator : MonoBehaviour
                 Mathf.Abs(ac.z - bc.z)) / 2;
     }
 
-    // Odd-R pointy-top -> cube coords
     Vector3Int OddRToCube(Vector3Int h)
     {
         int x = h.x - (h.y - (h.y & 1)) / 2;
@@ -220,30 +223,25 @@ public class HexMapGenerator : MonoBehaviour
     }
 
     // ------------------------------------------------------------
-    // PUBLICZNE API DLA BOTA
+    // PUBLICZNE API DLA BOTA / GRY
     // ------------------------------------------------------------
 
-    // Czy pole istnieje i jest l¹dowe/przechodnie?
+    public bool TryGetCell(Vector3Int coord, out HexCell cell) => cells.TryGetValue(coord, out cell);
+
     public bool IsPassableLand(Vector3Int coord)
     {
         if (cells.TryGetValue(coord, out HexCell cell))
-        {
             return cell.passable && !cell.isWater;
-        }
         return false;
     }
 
-    // Zwraca ownerId (0 = neutral, 1/2 = gracze itd.)
     public int GetOwnerId(Vector3Int coord)
     {
         if (cells.TryGetValue(coord, out HexCell cell))
-        {
             return cell.ownerId;
-        }
         return -1;
     }
 
-    // Ustawia w³aœciciela i podmienia Tile na podany
     public void SetOwnerAndTile(Vector3Int coord, int newOwnerId, TileBase tile)
     {
         if (cells.TryGetValue(coord, out HexCell cell))
@@ -253,14 +251,12 @@ public class HexMapGenerator : MonoBehaviour
         }
     }
 
-    // Zwraca listê s¹siadów (odd-r point-top)
     public List<Vector3Int> GetNeighbours(Vector3Int coord)
     {
         List<Vector3Int> result = new List<Vector3Int>();
 
         bool isOdd = (coord.y & 1) == 1;
 
-        // odd-r neighbours
         Vector3Int[] evenOffsets =
         {
             new Vector3Int(+1,  0, 0),
@@ -293,4 +289,74 @@ public class HexMapGenerator : MonoBehaviour
         return result;
     }
 
+    // Pola w zasiêgu <= radius (BFS po przechodnich)
+    public List<Vector3Int> GetCellsInRange(Vector3Int start, int radius)
+    {
+        var result = new List<Vector3Int>();
+        var q = new Queue<(Vector3Int pos, int dist)>();
+        var visited = new HashSet<Vector3Int>();
+
+        visited.Add(start);
+        q.Enqueue((start, 0));
+
+        while (q.Count > 0)
+        {
+            var (p, d) = q.Dequeue();
+            result.Add(p);
+
+            if (d == radius) continue;
+
+            foreach (var n in GetNeighbours(p))
+            {
+                if (visited.Contains(n)) continue;
+                if (!IsPassableLand(n)) continue;
+
+                visited.Add(n);
+                q.Enqueue((n, d + 1));
+            }
+        }
+
+        return result;
+    }
+
+    // Najbli¿szy kolejny krok (1 pole) z from -> target (BFS po przechodnich)
+    public bool TryGetNextStep(Vector3Int from, Vector3Int target, out Vector3Int nextStep)
+    {
+        nextStep = from;
+        if (from == target) return false;
+
+        var q = new Queue<Vector3Int>();
+        var cameFrom = new Dictionary<Vector3Int, Vector3Int>();
+        var visited = new HashSet<Vector3Int>();
+
+        visited.Add(from);
+        q.Enqueue(from);
+
+        bool found = false;
+
+        while (q.Count > 0)
+        {
+            var p = q.Dequeue();
+            if (p == target) { found = true; break; }
+
+            foreach (var n in GetNeighbours(p))
+            {
+                if (visited.Contains(n)) continue;
+                if (!IsPassableLand(n)) continue;
+
+                visited.Add(n);
+                cameFrom[n] = p;
+                q.Enqueue(n);
+            }
+        }
+
+        if (!found) return false;
+
+        var cur = target;
+        while (cameFrom.TryGetValue(cur, out var prev) && prev != from)
+            cur = prev;
+
+        nextStep = cur;
+        return true;
+    }
 }

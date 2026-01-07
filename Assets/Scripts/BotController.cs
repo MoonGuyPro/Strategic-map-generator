@@ -5,45 +5,50 @@ using UnityEngine.Tilemaps;
 public class BotController : MonoBehaviour
 {
     [Header("Referencje")]
-    public HexMapGenerator map;    // przypisz w Inspectorze
-    public TileBase botTile;       // tile oznaczaj¹cy terytorium bota
+    public HexMapGenerator map;
+    public TileBase botTile;
+
+    [Header("Armia")]
+    public ArmyToken armyTokenPrefab;
+    public Sprite armySprite;
 
     [Header("Ustawienia bota")]
-    public int botOwnerId = 1;     // 1 dla bota 1, 2 dla bota 2
+    public int botOwnerId = 1;
     [Tooltip("1 = spawnPosPlayer1, 2 = spawnPosPlayer2")]
-    public int spawnNumber = 1;    // który spawn ma byæ startem tego bota
+    public int spawnNumber = 1;
     public float expansionInterval = 5f;
 
-    private Vector3Int spawnPos;
-    private Vector3Int currentPos;
-    private float timer;
-    private bool initialized = false;
+    [Header("AI")]
+    public int visionRadius = 2;
 
-    // Czekamy jedn¹ klatkê, ¿eby HexMapGenerator zd¹¿y³ wygenerowaæ mapê w Start()
+    // pod przysz³oœæ: wiele pionków
+    private readonly List<ArmyToken> tokens = new();
+    private readonly List<Vector3Int> tokenPositions = new();
+
+    private Vector3Int currentPos;
+    private Vector3Int lastPos;
+    private float timer;
+    private bool initialized;
+
+    private Vector3Int SpawnPos =>
+        spawnNumber == 2 ? map.spawnPosPlayer2 : map.spawnPosPlayer1;
+
     private System.Collections.IEnumerator Start()
     {
-        if (map == null)
+        if (map == null || botTile == null)
         {
-            Debug.LogError("BotController: brak przypisanego HexMapGenerator!");
+            Debug.LogError("BotController: brak map lub botTile!");
             yield break;
         }
 
-        yield return null; // jedna klatka
+        yield return null; // czekamy a¿ mapa siê wygeneruje
 
-        // wybieramy spawn na podstawie spawnNumber
-        if (spawnNumber == 2)
-        {
-            spawnPos = map.spawnPosPlayer2;
-        }
-        else
-        {
-            spawnPos = map.spawnPosPlayer1;
-        }
+        currentPos = SpawnPos;
+        lastPos = currentPos;
 
-        currentPos = spawnPos;
-
-        // zaznaczamy startowe pole jako teren bota
         map.SetOwnerAndTile(currentPos, botOwnerId, botTile);
+
+        SpawnToken(currentPos);
 
         timer = expansionInterval;
         initialized = true;
@@ -57,64 +62,142 @@ public class BotController : MonoBehaviour
         if (timer <= 0f)
         {
             timer = expansionInterval;
-            ExpandOneStep();
+            DoTurn();
         }
     }
 
-    void ExpandOneStep()
+    // ------------------------------------------------------------
+    // Tokeny
+    // ------------------------------------------------------------
+    void SpawnToken(Vector3Int cell)
     {
-        // 1. Najpierw próbujemy rozszerzyæ siê z aktualnej pozycji
-        if (!TryExpandFrom(currentPos))
+        if (armyTokenPrefab == null || armySprite == null)
         {
-            // 2. Jeœli siê nie da, spróbuj ze spawna (¿eby bot nie zablokowa³ siê w jakiejœ „dziurze”)
-            TryExpandFrom(spawnPos);
+            Debug.LogWarning("BotController: brak armyTokenPrefab lub armySprite");
+            return;
+        }
+
+        ArmyToken token = Instantiate(armyTokenPrefab, transform);
+        token.Init(armySprite);
+        token.TeleportToCell(map.tilemap, cell);
+
+        tokens.Add(token);
+        tokenPositions.Add(cell);
+    }
+
+    void UpdateToken(int index, Vector3Int cell)
+    {
+        tokens[index].TeleportToCell(map.tilemap, cell);
+        tokenPositions[index] = cell;
+    }
+
+    // ------------------------------------------------------------
+    // Logika tury (na razie token 0)
+    // ------------------------------------------------------------
+    void DoTurn()
+    {
+        List<Vector3Int> visible = map.GetCellsInRange(currentPos, visionRadius);
+        Vector3Int? target = ChooseTarget(visible);
+
+        if (!target.HasValue)
+        {
+            MoveFallback();
+            return;
+        }
+
+        if (map.TryGetNextStep(currentPos, target.Value, out var step))
+        {
+            step = PreferNeutralStep(step, target.Value);
+
+            if (map.GetOwnerId(step) == 0)
+                map.SetOwnerAndTile(step, botOwnerId, botTile);
+
+            lastPos = currentPos;
+            currentPos = step;
+            UpdateToken(0, currentPos);
+        }
+        else
+        {
+            MoveFallback();
         }
     }
 
-    bool TryExpandFrom(Vector3Int from)
+    Vector3Int? ChooseTarget(List<Vector3Int> visible)
     {
-        List<Vector3Int> neighbours = map.GetNeighbours(from);
+        Vector3Int? bestMine = null;
+        Vector3Int? bestPop = null;
+        int bestPopulation = int.MinValue;
 
-        List<Vector3Int> preferred = new List<Vector3Int>(); // neutralne / cudze
-        List<Vector3Int> backup = new List<Vector3Int>();    // nasze w³asne pola
-
-        foreach (var n in neighbours)
+        foreach (var c in visible)
         {
-            if (!map.IsPassableLand(n))
-                continue;
+            if (!map.TryGetCell(c, out var cell)) continue;
+            if (!cell.passable) continue;
 
-            int owner = map.GetOwnerId(n);
+            if (cell.hasMine && cell.ownerId != botOwnerId)
+                bestMine ??= c;
 
-            if (owner != botOwnerId)
-                preferred.Add(n);  // najpierw chcemy neutral/enemy
-            else
-                backup.Add(n);     // potem mo¿emy wejœæ na swoje
+            if (cell.ownerId == 0 && cell.populationNumber > bestPopulation)
+            {
+                bestPopulation = cell.populationNumber;
+                bestPop = c;
+            }
         }
 
-        Vector3Int? targetNullable = null;
+        return bestMine ?? bestPop;
+    }
 
-        if (preferred.Count > 0)
+    Vector3Int PreferNeutralStep(Vector3Int suggested, Vector3Int target)
+    {
+        if (map.GetOwnerId(suggested) == 0)
+            return suggested;
+
+        int bestDist = HexDist(suggested, target);
+        Vector3Int best = suggested;
+
+        foreach (var n in map.GetNeighbours(currentPos))
         {
-            targetNullable = preferred[Random.Range(0, preferred.Count)];
-        }
-        else if (backup.Count > 0)
-        {
-            targetNullable = backup[Random.Range(0, backup.Count)];
-        }
+            if (!map.IsPassableLand(n)) continue;
+            if (n == lastPos) continue;
 
-        if (targetNullable.HasValue)
-        {
-            Vector3Int target = targetNullable.Value;
-
-            // przejmujemy pole (albo odœwie¿amy swoje)
-            map.SetOwnerAndTile(target, botOwnerId, botTile);
-
-            // bot „idzie” w to miejsce
-            currentPos = target;
-            return true;
+            if (map.GetOwnerId(n) == 0 && HexDist(n, target) <= bestDist)
+                best = n;
         }
 
-        // nie ma ¿adnych s¹siadów do ruchu
-        return false;
+        return best;
+    }
+
+    void MoveFallback()
+    {
+        foreach (var n in map.GetNeighbours(currentPos))
+        {
+            if (!map.IsPassableLand(n)) continue;
+            if (n == lastPos) continue;
+
+            if (map.GetOwnerId(n) == 0)
+            {
+                map.SetOwnerAndTile(n, botOwnerId, botTile);
+                lastPos = currentPos;
+                currentPos = n;
+                UpdateToken(0, currentPos);
+                return;
+            }
+        }
+    }
+
+    int HexDist(Vector3Int a, Vector3Int b)
+    {
+        var ac = OddRToCube(a);
+        var bc = OddRToCube(b);
+        return (Mathf.Abs(ac.x - bc.x) +
+                Mathf.Abs(ac.y - bc.y) +
+                Mathf.Abs(ac.z - bc.z)) / 2;
+    }
+
+    Vector3Int OddRToCube(Vector3Int h)
+    {
+        int x = h.x - (h.y - (h.y & 1)) / 2;
+        int z = h.y;
+        int y = -x - z;
+        return new Vector3Int(x, y, z);
     }
 }

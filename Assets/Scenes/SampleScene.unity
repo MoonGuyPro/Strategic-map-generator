@@ -158,6 +158,7 @@ MonoBehaviour:
   height: 20
   waterProbability: 0.1
   minSpawnDistance: 20
+  debugCells: []
   spawnPosPlayer1: {x: 0, y: 0, z: 0}
   spawnPosPlayer2: {x: 0, y: 0, z: 0}
 --- !u!4 &225472701
@@ -232,6 +233,7 @@ GameObject:
   - component: {fileID: 519420031}
   - component: {fileID: 519420029}
   - component: {fileID: 519420030}
+  - component: {fileID: 519420033}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -357,6 +359,28 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &519420033
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 519420028}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 57f8ef058fd78b5408d84af82fdedf38, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TileInspector
+  map: {fileID: 225472700}
+  cam: {fileID: 519420031}
+  selectedCoord: {x: 0, y: 0, z: 0}
+  hasSelection: 0
+  ownerId: 0
+  isWater: 0
+  passable: 0
+  hasMine: 0
+  isSpawn: 0
+  populationNumber: 0
 --- !u!1 &600692308
 GameObject:
   m_ObjectHideFlags: 0
@@ -520,7 +544,7 @@ MonoBehaviour:
   m_Intensity: 1
   m_LightVolumeIntensity: 1
   m_LightVolumeEnabled: 0
-  m_ApplyToSortingLayers: 00000000
+  m_ApplyToSortingLayers: 000000006111bab3
   m_LightCookieSprite: {fileID: 0}
   m_DeprecatedPointLightCookieSprite: {fileID: 0}
   m_LightOrder: 0
@@ -598,9 +622,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BotController
   map: {fileID: 225472700}
   botTile: {fileID: 11400000, guid: 2ce586f732854a9418012b73c4033288, type: 2}
+  armyTokenPrefab: {fileID: 9127385153527895614, guid: 68e25fa859edc3e4a9f15dfed67aa23c, type: 3}
+  armySprite: {fileID: 21300172, guid: 14aefffd3622c7347aad64f2bed35801, type: 3}
   botOwnerId: 1
   spawnNumber: 1
   expansionInterval: 1
+  visionRadius: 2
 --- !u!4 &873840220
 Transform:
   m_ObjectHideFlags: 0
@@ -647,9 +674,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BotController
   map: {fileID: 225472700}
   botTile: {fileID: 11400000, guid: f570949cdbe5cee43a95ac972755bcce, type: 2}
+  armyTokenPrefab: {fileID: 9127385153527895614, guid: 68e25fa859edc3e4a9f15dfed67aa23c, type: 3}
+  armySprite: {fileID: 21300170, guid: 14aefffd3622c7347aad64f2bed35801, type: 3}
   botOwnerId: 2
   spawnNumber: 2
   expansionInterval: 1
+  visionRadius: 2
 --- !u!4 &1851286723
 Transform:
   m_ObjectHideFlags: 0
