@@ -111,28 +111,111 @@ public class BotController : MonoBehaviour
     {
         GainGoldForTurn();
 
-        // 1) wybieramy najlepszy krok o 1 pole (priorytet: przejêcie teraz)
+        // 1) Jeœli mogê przej¹æ coœ TERAZ (s¹siad neutralny) – rób to
         if (TryChooseBestCaptureStep(out var step))
         {
-            // przejmujemy neutralne pole
             CaptureCell(step);
-
             lastPos = currentPos;
             currentPos = step;
             UpdateToken(0, currentPos);
             return;
         }
 
-        // 2) jeœli nie ma neutralnych s¹siadów - dopiero wtedy ruch "po swoim"
-        MoveFallback();
+        // 2) Jeœli nie ma neutralnych obok, wybierz najlepszy cel w "vision od terytorium"
+        //    i zrób krok po œcie¿ce (mo¿e byæ po swoim)
+        if (TryMoveTowardsBestVisibleTarget())
+            return;
+
+        // 3) Ostateczny fallback (jak nie ma ¿adnej œcie¿ki)
+        MoveFallbackRandom();
     }
+
+    bool TryMoveTowardsBestVisibleTarget()
+    {
+        // widzenie: ca³e nasze terytorium + radius od niego
+        HashSet<Vector3Int> visibleSet = GetTerritoryVision(visionRadius);
+
+        // wybieramy neutralne cele TYLKO z widocznych
+        Vector3Int? bestTarget = null;
+        int bestTargetScore = int.MinValue;
+        int bestTargetDist = int.MaxValue;
+
+        foreach (var pos in visibleSet)
+        {
+            if (!map.TryGetCell(pos, out var cell)) continue;
+            if (!cell.passable) continue;
+
+            // interesuj¹ nas neutralne (do przejêcia)
+            if (cell.ownerId != 0) continue;
+
+            // dystans "po mapie" od aktualnej pozycji tokena
+            // UWAGA: to jest dystans heksowy (heurystyka), a nie path-length,
+            // ale wystarcza do wyboru celu w tym etapie.
+            int dist = HexDist(currentPos, pos);
+
+            // scoring celu: kopalnia > populacja, a przy remisie bli¿ej wygrywa
+            int score = 0;
+            if (cell.hasMine) score += 1_000_000;
+            score += cell.populationNumber;
+
+            // wybór: najpierw minimalny dystans, potem wiêkszy score
+            if (dist < bestTargetDist || (dist == bestTargetDist && score > bestTargetScore))
+            {
+                bestTargetDist = dist;
+                bestTargetScore = score;
+                bestTarget = pos;
+            }
+        }
+
+        if (!bestTarget.HasValue)
+            return false; // nie widzimy ¿adnych neutralnych w okolicy terytorium
+
+        // znajdŸ pierwszy krok w stronê celu (BFS po przechodnich)
+        if (!map.TryGetNextStep(currentPos, bestTarget.Value, out var nextStep))
+            return false;
+
+        // NIE cofnij siê jeœli da siê unikn¹æ
+        if (nextStep == lastPos)
+        {
+            // spróbuj wybraæ alternatywny s¹siad, który skraca dystans do celu
+            var neighbours = map.GetNeighbours(currentPos);
+            int bestDist = HexDist(nextStep, bestTarget.Value);
+            Vector3Int bestAlt = nextStep;
+
+            foreach (var n in neighbours)
+            {
+                if (!map.IsPassableLand(n)) continue;
+                if (n == lastPos) continue;
+
+                int d = HexDist(n, bestTarget.Value);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    bestAlt = n;
+                }
+            }
+
+            nextStep = bestAlt;
+        }
+
+        // ruch po swoim/cudzym jest OK — tu celem jest dotarcie do granicy
+        lastPos = currentPos;
+        currentPos = nextStep;
+        UpdateToken(0, currentPos);
+
+        return true;
+    }
+
+
 
     bool TryChooseBestCaptureStep(out Vector3Int bestStep)
     {
         bestStep = default;
 
         // kopalnie widziane w promieniu 2 (tylko przechodnie)
-        List<Vector3Int> visible = map.GetCellsInRange(currentPos, visionRadius);
+        HashSet<Vector3Int> visibleSet = GetTerritoryVision(visionRadius);
+        List<Vector3Int> visible = new List<Vector3Int>(visibleSet);
+
 
         List<Vector3Int> minesInSight = new();
         foreach (var v in visible)
@@ -226,29 +309,26 @@ public class BotController : MonoBehaviour
 
 
 
-    void MoveFallback()
+    void MoveFallbackRandom()
     {
         var neighbours = map.GetNeighbours(currentPos);
-
         List<Vector3Int> passable = new();
 
         foreach (var n in neighbours)
         {
             if (!map.IsPassableLand(n)) continue;
             if (n == lastPos) continue;
-
             passable.Add(n);
         }
 
         if (passable.Count == 0) return;
 
-        // chodzimy losowo po przechodnich (mo¿e byæ po swoim / po cudzym)
         var step = passable[Random.Range(0, passable.Count)];
-
         lastPos = currentPos;
         currentPos = step;
         UpdateToken(0, currentPos);
     }
+
 
 
     int HexDist(Vector3Int a, Vector3Int b)
@@ -279,5 +359,24 @@ public class BotController : MonoBehaviour
         // Debug.Log($"Bot {botOwnerId} income={income} (base={goldPerIntervalByBase}, mines={mines}*{goldGainedByMine}), gold={gold}");
     }
 
+    HashSet<Vector3Int> GetTerritoryVision(int radius)
+    {
+        HashSet<Vector3Int> visible = new HashSet<Vector3Int>();
+
+        foreach (var cell in map.DebugCells) // lub map.GetAllCells()
+        {
+            if (cell.ownerId != botOwnerId) continue;
+
+            // swoje pole zawsze widoczne
+            visible.Add(cell.coord);
+
+            // + zasiêg od niego
+            List<Vector3Int> around = map.GetCellsInRange(cell.coord, radius);
+            foreach (var a in around)
+                visible.Add(a);
+        }
+
+        return visible;
+    }
 
 }
