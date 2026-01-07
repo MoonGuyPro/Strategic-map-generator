@@ -8,9 +8,15 @@ public class BotController : MonoBehaviour
     public HexMapGenerator map;
     public TileBase botTile;
 
-    [Header("Armia")]
+    [Header("Populacja")]
     public int population;
     public int populationPerCapture = 10; // ile zabieramy z pola
+
+    [Header("Z³oto")]
+    public int gold = 0;
+    public int goldPerIntervalByBase = 70;
+    public int goldGainedByMine = 30;
+    public int ownedMineCount = 0;
 
     [Header("Armia")]
     public ArmyToken armyTokenPrefab;
@@ -91,15 +97,20 @@ public class BotController : MonoBehaviour
 
     void UpdateToken(int index, Vector3Int cell)
     {
+        if (index < 0 || index >= tokens.Count) return;
+
         tokens[index].TeleportToCell(map.tilemap, cell);
         tokenPositions[index] = cell;
     }
+
 
     // ------------------------------------------------------------
     // Logika tury (na razie token 0)
     // ------------------------------------------------------------
     void DoTurn()
     {
+        GainGoldForTurn();
+
         // 1) wybieramy najlepszy krok o 1 pole (priorytet: przejêcie teraz)
         if (TryChooseBestCaptureStep(out var step))
         {
@@ -199,13 +210,20 @@ public class BotController : MonoBehaviour
         // 1. zmiana w³aœciciela + tile
         map.SetOwnerAndTile(cellPos, botOwnerId, botTile);
 
-        // 2. bot zbiera populacjê
+        // 2. bot zbiera populacjê (populacja - 10)
         int gainedPopulation = Mathf.Max(0, cell.populationNumber - populationPerCapture);
         population += gainedPopulation;
 
-        // 3. pole dostaje armiê
+        // 3. pole dostaje garnizon
         cell.army = populationPerCapture;
+
+        // 4. JEŒLI TO KOPALNIA -> ZWIÊKSZ LICZNIK
+        if (cell.hasMine)
+        {
+            ownedMineCount++;
+        }
     }
+
 
 
     void MoveFallback()
@@ -249,4 +267,17 @@ public class BotController : MonoBehaviour
         int y = -x - z;
         return new Vector3Int(x, y, z);
     }
+    void GainGoldForTurn()
+    {
+        int income =
+            goldPerIntervalByBase +
+            (ownedMineCount * goldGainedByMine);
+
+        gold += income;
+
+        // opcjonalny log do sprawdzenia:
+        // Debug.Log($"Bot {botOwnerId} income={income} (base={goldPerIntervalByBase}, mines={mines}*{goldGainedByMine}), gold={gold}");
+    }
+
+
 }
