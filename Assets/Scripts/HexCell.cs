@@ -10,4 +10,5 @@ public class HexCell
     public bool hasMine;
     public bool isSpawn;
     public int populationNumber;
+    public int army = 0;
 }

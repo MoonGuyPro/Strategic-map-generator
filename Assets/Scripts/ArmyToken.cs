@@ -5,6 +5,7 @@ using UnityEngine.Tilemaps;
 public class ArmyToken : MonoBehaviour
 {
     public SpriteRenderer spriteRenderer;
+    public int armySize = 300;
 
     public void Init(Sprite sprite)
     {

@@ -9,6 +9,10 @@ public class BotController : MonoBehaviour
     public TileBase botTile;
 
     [Header("Armia")]
+    public int population;
+    public int populationPerCapture = 10; // ile zabieramy z pola
+
+    [Header("Armia")]
     public ArmyToken armyTokenPrefab;
     public Sprite armySprite;
 
@@ -96,93 +100,138 @@ public class BotController : MonoBehaviour
     // ------------------------------------------------------------
     void DoTurn()
     {
-        List<Vector3Int> visible = map.GetCellsInRange(currentPos, visionRadius);
-        Vector3Int? target = ChooseTarget(visible);
-
-        if (!target.HasValue)
+        // 1) wybieramy najlepszy krok o 1 pole (priorytet: przejêcie teraz)
+        if (TryChooseBestCaptureStep(out var step))
         {
-            MoveFallback();
-            return;
-        }
-
-        if (map.TryGetNextStep(currentPos, target.Value, out var step))
-        {
-            step = PreferNeutralStep(step, target.Value);
-
-            if (map.GetOwnerId(step) == 0)
-                map.SetOwnerAndTile(step, botOwnerId, botTile);
+            // przejmujemy neutralne pole
+            CaptureCell(step);
 
             lastPos = currentPos;
             currentPos = step;
             UpdateToken(0, currentPos);
+            return;
         }
-        else
-        {
-            MoveFallback();
-        }
+
+        // 2) jeœli nie ma neutralnych s¹siadów - dopiero wtedy ruch "po swoim"
+        MoveFallback();
     }
 
-    Vector3Int? ChooseTarget(List<Vector3Int> visible)
+    bool TryChooseBestCaptureStep(out Vector3Int bestStep)
     {
-        Vector3Int? bestMine = null;
-        Vector3Int? bestPop = null;
-        int bestPopulation = int.MinValue;
+        bestStep = default;
 
-        foreach (var c in visible)
+        // kopalnie widziane w promieniu 2 (tylko przechodnie)
+        List<Vector3Int> visible = map.GetCellsInRange(currentPos, visionRadius);
+
+        List<Vector3Int> minesInSight = new();
+        foreach (var v in visible)
         {
-            if (!map.TryGetCell(c, out var cell)) continue;
-            if (!cell.passable) continue;
-
-            if (cell.hasMine && cell.ownerId != botOwnerId)
-                bestMine ??= c;
-
-            if (cell.ownerId == 0 && cell.populationNumber > bestPopulation)
-            {
-                bestPopulation = cell.populationNumber;
-                bestPop = c;
-            }
+            if (!map.TryGetCell(v, out var c)) continue;
+            if (!c.passable) continue;
+            if (c.hasMine && c.ownerId != botOwnerId)
+                minesInSight.Add(v);
         }
 
-        return bestMine ?? bestPop;
-    }
+        var neighbours = map.GetNeighbours(currentPos);
 
-    Vector3Int PreferNeutralStep(Vector3Int suggested, Vector3Int target)
-    {
-        if (map.GetOwnerId(suggested) == 0)
-            return suggested;
+        int bestScore = int.MinValue;
+        bool found = false;
 
-        int bestDist = HexDist(suggested, target);
-        Vector3Int best = suggested;
-
-        foreach (var n in map.GetNeighbours(currentPos))
+        foreach (var n in neighbours)
         {
             if (!map.IsPassableLand(n)) continue;
             if (n == lastPos) continue;
 
-            if (map.GetOwnerId(n) == 0 && HexDist(n, target) <= bestDist)
-                best = n;
+            // interesuj¹ nas tylko NEUTRALNE kroki (bo mamy przejmowaæ co turê)
+            if (map.GetOwnerId(n) != 0) continue;
+
+            if (!map.TryGetCell(n, out var cell)) continue;
+
+            int score = 0;
+
+            // (1) jeœli ten krok to kopalnia -> giga priorytet
+            if (cell.hasMine) score += 1_000_000;
+
+            // (2) jeœli widzimy kopalniê w promieniu 2:
+            //     premiuj krok, który skraca dystans do najbli¿szej kopalni
+            if (minesInSight.Count > 0)
+            {
+                int bestMineDistNow = int.MaxValue;
+                int bestMineDistAfter = int.MaxValue;
+
+                foreach (var m in minesInSight)
+                {
+                    int dNow = HexDist(currentPos, m);
+                    int dAfter = HexDist(n, m);
+
+                    if (dNow < bestMineDistNow) bestMineDistNow = dNow;
+                    if (dAfter < bestMineDistAfter) bestMineDistAfter = dAfter;
+                }
+
+                // jeœli krok faktycznie przybli¿a do kopalni -> du¿y bonus
+                if (bestMineDistAfter < bestMineDistNow)
+                    score += 100_000;
+            }
+
+            // (3) populacja jako tie-breaker / drugi priorytet
+            score += cell.populationNumber;
+
+            if (!found || score > bestScore)
+            {
+                bestScore = score;
+                bestStep = n;
+                found = true;
+            }
         }
 
-        return best;
+        return found;
     }
+
+    void CaptureCell(Vector3Int cellPos)
+    {
+        if (!map.TryGetCell(cellPos, out HexCell cell))
+            return;
+
+        // przejmujemy tylko neutralne
+        if (cell.ownerId != 0)
+            return;
+
+        // 1. zmiana w³aœciciela + tile
+        map.SetOwnerAndTile(cellPos, botOwnerId, botTile);
+
+        // 2. bot zbiera populacjê
+        int gainedPopulation = Mathf.Max(0, cell.populationNumber - populationPerCapture);
+        population += gainedPopulation;
+
+        // 3. pole dostaje armiê
+        cell.army = populationPerCapture;
+    }
+
 
     void MoveFallback()
     {
-        foreach (var n in map.GetNeighbours(currentPos))
+        var neighbours = map.GetNeighbours(currentPos);
+
+        List<Vector3Int> passable = new();
+
+        foreach (var n in neighbours)
         {
             if (!map.IsPassableLand(n)) continue;
             if (n == lastPos) continue;
 
-            if (map.GetOwnerId(n) == 0)
-            {
-                map.SetOwnerAndTile(n, botOwnerId, botTile);
-                lastPos = currentPos;
-                currentPos = n;
-                UpdateToken(0, currentPos);
-                return;
-            }
+            passable.Add(n);
         }
+
+        if (passable.Count == 0) return;
+
+        // chodzimy losowo po przechodnich (mo¿e byæ po swoim / po cudzym)
+        var step = passable[Random.Range(0, passable.Count)];
+
+        lastPos = currentPos;
+        currentPos = step;
+        UpdateToken(0, currentPos);
     }
+
 
     int HexDist(Vector3Int a, Vector3Int b)
     {

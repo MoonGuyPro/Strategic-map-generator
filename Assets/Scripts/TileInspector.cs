@@ -17,6 +17,7 @@ public class TileInspector : MonoBehaviour
     public bool hasMine;
     public bool isSpawn;
     public int populationNumber;
+    public int army;
 
     void Update()
     {
@@ -41,6 +42,7 @@ public class TileInspector : MonoBehaviour
                 hasMine = cell.hasMine;
                 isSpawn = cell.isSpawn;
                 populationNumber = cell.populationNumber;
+                army = cell.army;
 
                 Debug.Log($"Selected {cellPos} | pop={populationNumber} | mine={hasMine} | owner={ownerId}");
             }
