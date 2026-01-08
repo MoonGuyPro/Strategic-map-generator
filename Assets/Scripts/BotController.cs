@@ -32,7 +32,6 @@ public class BotController : MonoBehaviour
     [Range(0f, 2f)] public float winLossMin = 0.8f;  // 80%
     [Range(0f, 2f)] public float winLossMax = 1.2f;  // 120%
 
-
     [Header("Ustawienia bota")]
     public int botOwnerId = 1;
     [Tooltip("1 = spawnPosPlayer1, 2 = spawnPosPlayer2")]
@@ -101,7 +100,8 @@ public class BotController : MonoBehaviour
         TryCreateNewUnitFromPopulation();
 
         // ka¿dy token wykonuje 1 ruch na turê/interwa³
-        for (int i = 0; i < tokens.Count; i++)
+        // UWAGA: iterujemy od koñca, bo token mo¿e zostaæ zniszczony w walce
+        for (int i = tokens.Count - 1; i >= 0; i--)
         {
             DoUnitStep(i);
         }
@@ -109,35 +109,123 @@ public class BotController : MonoBehaviour
 
     void DoUnitStep(int unitIndex)
     {
+        if (unitIndex < 0 || unitIndex >= tokens.Count) return;
+
         Vector3Int currentPos = tokenPositions[unitIndex];
         Vector3Int lastPos = tokenLastPositions[unitIndex];
 
-        // 1) jeœli mogê przej¹æ neutralne pole obok - zrób to (kopalnia/populacja)
-        if (TryChooseBestCaptureStep(currentPos, lastPos, out var captureStep))
+        // 1) krok obok: priorytet neutralne, a gdy brak neutralnych - wrogie (walka)
+        if (TryChooseBestAdjacentStep(currentPos, lastPos, out var bestAdjacent))
         {
-            CaptureCell(captureStep);
-
-            tokenLastPositions[unitIndex] = currentPos;
-            tokenPositions[unitIndex] = captureStep;
-            UpdateToken(unitIndex, captureStep);
+            bool aliveAndMoved = TryEnterCell(unitIndex, bestAdjacent);
+            if (aliveAndMoved && unitIndex < tokens.Count) // token móg³ umrzeæ
+            {
+                tokenLastPositions[unitIndex] = currentPos;
+                tokenPositions[unitIndex] = bestAdjacent;
+                UpdateToken(unitIndex, bestAdjacent);
+            }
             return;
         }
 
-        // 2) jeœli nie ma neutralnych obok - idŸ w kierunku najlepszego celu widocznego z terytorium
-        if (TryMoveTowardsBestVisibleTarget(currentPos, lastPos, out var moveStep))
+        // 2) jeœli nie ma sensownego kroku obok - idŸ w kierunku najlepszego celu widocznego z terytorium 
+        bool TryMoveTowardsBestVisibleTarget(Vector3Int currentPos, Vector3Int lastPos, out Vector3Int step)
         {
-            tokenLastPositions[unitIndex] = currentPos;
-            tokenPositions[unitIndex] = moveStep;
-            UpdateToken(unitIndex, moveStep);
-            return;
+            step = default;
+
+            HashSet<Vector3Int> visibleSet = GetTerritoryVision(visionRadius);
+
+            // 1) najpierw spróbuj znaleŸæ neutralny cel
+            Vector3Int? bestNeutral = null;
+            int bestNeutralDist = int.MaxValue;
+            int bestNeutralScore = int.MinValue;
+
+            // 2) jeœli nie ma neutralnych, szukamy wrogiego celu (do ataku)
+            Vector3Int? bestEnemy = null;
+            int bestEnemyDist = int.MaxValue;
+            int bestEnemyScore = int.MinValue;
+
+            foreach (var pos in visibleSet)
+            {
+                if (!map.TryGetCell(pos, out var cell)) continue;
+                if (!cell.passable) continue;
+
+                int owner = cell.ownerId;
+                if (owner == botOwnerId) continue; // swoje nie jest celem
+
+                int dist = HexDist(currentPos, pos);
+
+                int score = 0;
+                if (cell.hasMine) score += 1_000_000;
+                score += cell.populationNumber;
+
+                if (owner == 0)
+                {
+                    // neutralne: minimalny dystans, potem max score
+                    if (dist < bestNeutralDist || (dist == bestNeutralDist && score > bestNeutralScore))
+                    {
+                        bestNeutralDist = dist;
+                        bestNeutralScore = score;
+                        bestNeutral = pos;
+                    }
+                }
+                else
+                {
+                    // wrogie: minimalny dystans, potem max score
+                    if (dist < bestEnemyDist || (dist == bestEnemyDist && score > bestEnemyScore))
+                    {
+                        bestEnemyDist = dist;
+                        bestEnemyScore = score;
+                        bestEnemy = pos;
+                    }
+                }
+            }
+
+            // wybieramy cel: neutralne jeœli istnieje, w przeciwnym razie wrogie
+            Vector3Int? target = bestNeutral ?? bestEnemy;
+            if (!target.HasValue) return false;
+
+            // idŸ o 1 krok w stronê celu
+            if (!map.TryGetNextStep(currentPos, target.Value, out var nextStep))
+                return false;
+
+            // unikaj cofania jeœli siê da
+            if (nextStep == lastPos)
+            {
+                var neighbours = map.GetNeighbours(currentPos);
+                int bestDist = HexDist(nextStep, target.Value);
+                Vector3Int bestAlt = nextStep;
+
+                foreach (var n in neighbours)
+                {
+                    if (!map.IsPassableLand(n)) continue;
+                    if (n == lastPos) continue;
+
+                    int d = HexDist(n, target.Value);
+                    if (d < bestDist)
+                    {
+                        bestDist = d;
+                        bestAlt = n;
+                    }
+                }
+
+                nextStep = bestAlt;
+            }
+
+            step = nextStep;
+            return true;
         }
+
 
         // 3) ostateczny fallback (losowo)
         if (TryMoveFallbackRandom(currentPos, lastPos, out var randomStep))
         {
-            tokenLastPositions[unitIndex] = currentPos;
-            tokenPositions[unitIndex] = randomStep;
-            UpdateToken(unitIndex, randomStep);
+            bool aliveAndMoved = TryEnterCell(unitIndex, randomStep);
+            if (aliveAndMoved && unitIndex < tokens.Count)
+            {
+                tokenLastPositions[unitIndex] = currentPos;
+                tokenPositions[unitIndex] = randomStep;
+                UpdateToken(unitIndex, randomStep);
+            }
         }
     }
 
@@ -172,7 +260,6 @@ public class BotController : MonoBehaviour
         }
     }
 
-
     // ------------------------------------------------------------
     // Tokeny
     // ------------------------------------------------------------
@@ -203,72 +290,55 @@ public class BotController : MonoBehaviour
     }
 
     // ------------------------------------------------------------
-    // Wybór neutralnego kroku obok (capture-now)
+    // Krok obok: neutralne najpierw, a gdy brak neutralnych -> wrogie (walka)
     // ------------------------------------------------------------
-    bool TryChooseBestCaptureStep(Vector3Int currentPos, Vector3Int lastPos, out Vector3Int bestStep)
+    bool TryChooseBestAdjacentStep(Vector3Int currentPos, Vector3Int lastPos, out Vector3Int bestStep)
     {
         bestStep = default;
 
-        // widzenie terytorialne (¿eby wiedzieæ o kopalniach w promieniu 2 od terytorium)
-        HashSet<Vector3Int> visibleSet = GetTerritoryVision(visionRadius);
-
-        // minesInSight = kopalnie widoczne z terytorium
-        List<Vector3Int> minesInSight = new();
-        foreach (var v in visibleSet)
-        {
-            if (!map.TryGetCell(v, out var c)) continue;
-            if (!c.passable) continue;
-            if (c.hasMine && c.ownerId != botOwnerId)
-                minesInSight.Add(v);
-        }
-
         var neighbours = map.GetNeighbours(currentPos);
 
-        int bestScore = int.MinValue;
-        bool found = false;
+        List<Vector3Int> neutral = new();
+        List<Vector3Int> enemy = new();
 
         foreach (var n in neighbours)
         {
             if (!map.IsPassableLand(n)) continue;
             if (n == lastPos) continue;
 
-            // przejmujemy tylko neutralne w 1 kroku
-            if (map.GetOwnerId(n) != 0) continue;
+            int owner = map.GetOwnerId(n);
+            if (owner == 0) neutral.Add(n);
+            else if (owner != botOwnerId) enemy.Add(n);
+        }
 
-            if (!map.TryGetCell(n, out var cell)) continue;
+        if (neutral.Count > 0)
+            return PickBestByMineThenPop(neutral, out bestStep);
+
+        if (enemy.Count > 0)
+            return PickBestByMineThenPop(enemy, out bestStep);
+
+        return false;
+    }
+
+    bool PickBestByMineThenPop(List<Vector3Int> candidates, out Vector3Int bestStep)
+    {
+        bestStep = default;
+        bool found = false;
+        int bestScore = int.MinValue;
+
+        foreach (var p in candidates)
+        {
+            if (!map.TryGetCell(p, out var cell)) continue;
+            if (!cell.passable) continue;
 
             int score = 0;
-
-            // 1) jeœli to neutralna kopalnia -> absolutny priorytet
             if (cell.hasMine) score += 1_000_000;
-
-            // 2) jeœli widzimy kopalnie w promieniu 2 od terytorium:
-            //    premiuj kroki, które przybli¿aj¹ do kopalni
-            if (minesInSight.Count > 0)
-            {
-                int bestMineDistNow = int.MaxValue;
-                int bestMineDistAfter = int.MaxValue;
-
-                foreach (var m in minesInSight)
-                {
-                    int dNow = HexDist(currentPos, m);
-                    int dAfter = HexDist(n, m);
-
-                    if (dNow < bestMineDistNow) bestMineDistNow = dNow;
-                    if (dAfter < bestMineDistAfter) bestMineDistAfter = dAfter;
-                }
-
-                if (bestMineDistAfter < bestMineDistNow)
-                    score += 100_000;
-            }
-
-            // 3) populacja jako drugi priorytet
             score += cell.populationNumber;
 
             if (!found || score > bestScore)
             {
                 bestScore = score;
-                bestStep = n;
+                bestStep = p;
                 found = true;
             }
         }
@@ -277,7 +347,7 @@ public class BotController : MonoBehaviour
     }
 
     // ------------------------------------------------------------
-    // Marsz do najlepszego celu widocznego z terytorium
+    // Marsz do najlepszego celu widocznego z terytorium (neutralne)
     // (gdy obok nie ma neutralnych)
     // ------------------------------------------------------------
     bool TryMoveTowardsBestVisibleTarget(Vector3Int currentPos, Vector3Int lastPos, out Vector3Int step)
@@ -361,6 +431,98 @@ public class BotController : MonoBehaviour
 
         step = passable[Random.Range(0, passable.Count)];
         return true;
+    }
+
+    // ------------------------------------------------------------
+    // WEJŒCIE NA POLE: neutralne -> capture, wrogie -> walka, swoje -> ruch
+    // ------------------------------------------------------------
+    bool TryEnterCell(int unitIndex, Vector3Int targetPos)
+    {
+        if (unitIndex < 0 || unitIndex >= tokens.Count) return false;
+
+        if (!map.TryGetCell(targetPos, out HexCell cell))
+            return false;
+
+        // swoje pole -> tylko ruch
+        if (cell.ownerId == botOwnerId)
+            return true;
+
+        // neutralne -> normalne przejêcie
+        if (cell.ownerId == 0)
+        {
+            CaptureCell(targetPos);
+            return true;
+        }
+
+        // wrogie -> walka z armi¹ pola
+        return ResolveBattleOnEnemyTile(unitIndex, targetPos, cell);
+    }
+
+    bool ResolveBattleOnEnemyTile(int unitIndex, Vector3Int pos, HexCell cell)
+    {
+        if (unitIndex < 0 || unitIndex >= tokens.Count) return false;
+
+        int attacker = tokens[unitIndex].armySize;
+        int defender = Mathf.Max(0, cell.army);
+
+        // jeœli pole wrogie ale bez armii -> darmowe przejêcie
+        if (defender <= 0)
+        {
+            ConquerEnemyTile(pos, cell);
+            return true;
+        }
+
+        // wygrywa wiêksza armia
+        if (attacker <= defender)
+        {
+            // przegrana: token ginie
+            KillToken(unitIndex);
+            return false;
+        }
+
+        // wygrana: strata 80-120% armii pokonanego
+        float mult = Random.Range(winLossMin, winLossMax);
+        int loss = Mathf.RoundToInt(defender * mult);
+        tokens[unitIndex].armySize -= loss;
+
+        // przejmujemy pole
+        ConquerEnemyTile(pos, cell);
+
+        // jeœli po stratach <=0 -> ginie
+        if (tokens[unitIndex].armySize <= 0)
+        {
+            KillToken(unitIndex);
+            return false;
+        }
+
+        return true;
+    }
+
+    void ConquerEnemyTile(Vector3Int pos, HexCell cell)
+    {
+        int previousOwner = cell.ownerId;
+
+        // przejêcie (kolor/Tile)
+        map.SetOwnerAndTile(pos, botOwnerId, botTile);
+
+        // garnizon na zdobytym polu (Twoja mechanika)
+        cell.army = populationPerCapture;
+
+        // kopalnia -> nasz licznik +1
+        // (nie odejmujemy poprzedniemu botowi, bo na razie nie obs³ugujemy przeciwnych tokenów)
+        if (cell.hasMine && previousOwner != botOwnerId)
+            ownedMineCount++;
+    }
+
+    void KillToken(int unitIndex)
+    {
+        if (unitIndex < 0 || unitIndex >= tokens.Count) return;
+
+        Destroy(tokens[unitIndex].gameObject);
+
+        tokens.RemoveAt(unitIndex);
+        tokenPositions.RemoveAt(unitIndex);
+        tokenLastPositions.RemoveAt(unitIndex);
     }
 
     // ------------------------------------------------------------
