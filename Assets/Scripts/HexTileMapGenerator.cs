@@ -10,6 +10,10 @@ public class HexMapGenerator : MonoBehaviour
     public TileBase waterTile;
     public TileBase spawnTile;
 
+    [Header("Populacja")]
+    public int population_min = 11;
+    public int population_max = 51;
+
     [Header("Kopalnie")]
     public TileBase mineTile;
     public int mineCount = 5;
@@ -73,7 +77,7 @@ public class HexMapGenerator : MonoBehaviour
                 TileBase tileToPlace = isWater ? waterTile : grassTile;
                 tilemap.SetTile(pos, tileToPlace);
 
-                int population = isWater ? 0 : Random.Range(10, 101); // 10–100
+                int population = isWater ? 0 : Random.Range(population_min, population_max); // 10–100
 
                 HexCell cell = new HexCell
                 {
