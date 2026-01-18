@@ -36,7 +36,6 @@ public class BotController : MonoBehaviour
     public int botOwnerId = 1;
     [Tooltip("1 = spawnPosPlayer1, 2 = spawnPosPlayer2")]
     public int spawnNumber = 1;
-    public float expansionInterval = 5f;
 
     [Header("AI")]
     public int visionRadius = 2;
@@ -47,7 +46,6 @@ public class BotController : MonoBehaviour
     private readonly List<Vector3Int> tokenLastPositions = new();
 
     private Vector3Int spawnPos;
-    private float timer;
     private bool initialized;
 
     private System.Collections.IEnumerator Start()
@@ -73,25 +71,20 @@ public class BotController : MonoBehaviour
             tokenLastPositions[tokenIndex] = spawnPos;
         }
 
-        timer = expansionInterval;
         initialized = true;
     }
 
-    void Update()
-    {
-        if (!initialized) return;
-
-        timer -= Time.deltaTime;
-        if (timer <= 0f)
-        {
-            timer = expansionInterval;
-            DoTurn();
-        }
-    }
 
     // ------------------------------------------------------------
     // TURA
     // ------------------------------------------------------------
+
+    public void TakeTurn()
+    {
+        if (!initialized) return;
+        DoTurn();
+    }
+
     void DoTurn()
     {
         GainGoldForTurn();
@@ -127,92 +120,17 @@ public class BotController : MonoBehaviour
             return;
         }
 
-        // 2) jeœli nie ma sensownego kroku obok - idŸ w kierunku najlepszego celu widocznego z terytorium 
-        bool TryMoveTowardsBestVisibleTarget(Vector3Int currentPos, Vector3Int lastPos, out Vector3Int step)
+        // 2) jeœli nie ma sensownego kroku obok - idŸ w kierunku najlepszego celu widocznego z terytorium
+        if (TryMoveTowardsBestVisibleTarget(currentPos, lastPos, out var moveStep))
         {
-            step = default;
-
-            HashSet<Vector3Int> visibleSet = GetTerritoryVision(visionRadius);
-
-            // 1) najpierw spróbuj znaleŸæ neutralny cel
-            Vector3Int? bestNeutral = null;
-            int bestNeutralDist = int.MaxValue;
-            int bestNeutralScore = int.MinValue;
-
-            // 2) jeœli nie ma neutralnych, szukamy wrogiego celu (do ataku)
-            Vector3Int? bestEnemy = null;
-            int bestEnemyDist = int.MaxValue;
-            int bestEnemyScore = int.MinValue;
-
-            foreach (var pos in visibleSet)
+            bool aliveAndMoved = TryEnterCell(unitIndex, moveStep);
+            if (aliveAndMoved && unitIndex < tokens.Count)
             {
-                if (!map.TryGetCell(pos, out var cell)) continue;
-                if (!cell.passable) continue;
-
-                int owner = cell.ownerId;
-                if (owner == botOwnerId) continue; // swoje nie jest celem
-
-                int dist = HexDist(currentPos, pos);
-
-                int score = 0;
-                if (cell.hasMine) score += 1_000_000;
-                score += cell.populationNumber;
-
-                if (owner == 0)
-                {
-                    // neutralne: minimalny dystans, potem max score
-                    if (dist < bestNeutralDist || (dist == bestNeutralDist && score > bestNeutralScore))
-                    {
-                        bestNeutralDist = dist;
-                        bestNeutralScore = score;
-                        bestNeutral = pos;
-                    }
-                }
-                else
-                {
-                    // wrogie: minimalny dystans, potem max score
-                    if (dist < bestEnemyDist || (dist == bestEnemyDist && score > bestEnemyScore))
-                    {
-                        bestEnemyDist = dist;
-                        bestEnemyScore = score;
-                        bestEnemy = pos;
-                    }
-                }
+                tokenLastPositions[unitIndex] = currentPos;
+                tokenPositions[unitIndex] = moveStep;
+                UpdateToken(unitIndex, moveStep);
             }
-
-            // wybieramy cel: neutralne jeœli istnieje, w przeciwnym razie wrogie
-            Vector3Int? target = bestNeutral ?? bestEnemy;
-            if (!target.HasValue) return false;
-
-            // idŸ o 1 krok w stronê celu
-            if (!map.TryGetNextStep(currentPos, target.Value, out var nextStep))
-                return false;
-
-            // unikaj cofania jeœli siê da
-            if (nextStep == lastPos)
-            {
-                var neighbours = map.GetNeighbours(currentPos);
-                int bestDist = HexDist(nextStep, target.Value);
-                Vector3Int bestAlt = nextStep;
-
-                foreach (var n in neighbours)
-                {
-                    if (!map.IsPassableLand(n)) continue;
-                    if (n == lastPos) continue;
-
-                    int d = HexDist(n, target.Value);
-                    if (d < bestDist)
-                    {
-                        bestDist = d;
-                        bestAlt = n;
-                    }
-                }
-
-                nextStep = bestAlt;
-            }
-
-            step = nextStep;
-            return true;
+            return;
         }
 
 
@@ -356,15 +274,23 @@ public class BotController : MonoBehaviour
 
         HashSet<Vector3Int> visibleSet = GetTerritoryVision(visionRadius);
 
-        Vector3Int? bestTarget = null;
-        int bestTargetDist = int.MaxValue;
-        int bestTargetScore = int.MinValue;
+        // 1) najpierw spróbuj znaleŸæ neutralny cel
+        Vector3Int? bestNeutral = null;
+        int bestNeutralDist = int.MaxValue;
+        int bestNeutralScore = int.MinValue;
+
+        // 2) jeœli nie ma neutralnych, szukamy wrogiego celu (do ataku)
+        Vector3Int? bestEnemy = null;
+        int bestEnemyDist = int.MaxValue;
+        int bestEnemyScore = int.MinValue;
 
         foreach (var pos in visibleSet)
         {
             if (!map.TryGetCell(pos, out var cell)) continue;
             if (!cell.passable) continue;
-            if (cell.ownerId != 0) continue; // chcemy tylko neutralne
+
+            int owner = cell.ownerId;
+            if (owner == botOwnerId) continue; // swoje nie jest celem
 
             int dist = HexDist(currentPos, pos);
 
@@ -372,25 +298,41 @@ public class BotController : MonoBehaviour
             if (cell.hasMine) score += 1_000_000;
             score += cell.populationNumber;
 
-            // najpierw minimalny dystans, a przy remisie wiêkszy score
-            if (dist < bestTargetDist || (dist == bestTargetDist && score > bestTargetScore))
+            if (owner == 0)
             {
-                bestTargetDist = dist;
-                bestTargetScore = score;
-                bestTarget = pos;
+                // neutralne: minimalny dystans, potem max score
+                if (dist < bestNeutralDist || (dist == bestNeutralDist && score > bestNeutralScore))
+                {
+                    bestNeutralDist = dist;
+                    bestNeutralScore = score;
+                    bestNeutral = pos;
+                }
+            }
+            else
+            {
+                // wrogie: minimalny dystans, potem max score
+                if (dist < bestEnemyDist || (dist == bestEnemyDist && score > bestEnemyScore))
+                {
+                    bestEnemyDist = dist;
+                    bestEnemyScore = score;
+                    bestEnemy = pos;
+                }
             }
         }
 
-        if (!bestTarget.HasValue) return false;
+        // wybieramy cel: neutralne jeœli istnieje, w przeciwnym razie wrogie
+        Vector3Int? target = bestNeutral ?? bestEnemy;
+        if (!target.HasValue) return false;
 
-        if (!map.TryGetNextStep(currentPos, bestTarget.Value, out var nextStep))
+        // idŸ o 1 krok w stronê celu
+        if (!map.TryGetNextStep(currentPos, target.Value, out var nextStep))
             return false;
 
         // unikaj cofania jeœli siê da
         if (nextStep == lastPos)
         {
             var neighbours = map.GetNeighbours(currentPos);
-            int bestDist = HexDist(nextStep, bestTarget.Value);
+            int bestDist = HexDist(nextStep, target.Value);
             Vector3Int bestAlt = nextStep;
 
             foreach (var n in neighbours)
@@ -398,7 +340,7 @@ public class BotController : MonoBehaviour
                 if (!map.IsPassableLand(n)) continue;
                 if (n == lastPos) continue;
 
-                int d = HexDist(n, bestTarget.Value);
+                int d = HexDist(n, target.Value);
                 if (d < bestDist)
                 {
                     bestDist = d;
@@ -412,6 +354,7 @@ public class BotController : MonoBehaviour
         step = nextStep;
         return true;
     }
+
 
     bool TryMoveFallbackRandom(Vector3Int currentPos, Vector3Int lastPos, out Vector3Int step)
     {

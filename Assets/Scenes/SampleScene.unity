@@ -119,6 +119,54 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &219447685
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 219447687}
+  - component: {fileID: 219447686}
+  m_Layer: 0
+  m_Name: BotTurnController
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &219447686
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 219447685}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a73e0c9f7cd64e4a8887a05a2ea2d11, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BotTurnManager
+  botA: {fileID: 1851286722}
+  botB: {fileID: 873840219}
+  turnInterval: 0.1
+  randomizeFirstBot: 1
+--- !u!4 &219447687
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 219447685}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 9.21719, y: 5.46672, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &225472699
 GameObject:
   m_ObjectHideFlags: 0
@@ -152,6 +200,8 @@ MonoBehaviour:
   grassTile: {fileID: 11400000, guid: 0f7be247a798aed4e8f4f4b80d53e196, type: 2}
   waterTile: {fileID: 11400000, guid: 8159beeb24e86ef48af9c5d32499d627, type: 2}
   spawnTile: {fileID: 11400000, guid: 3a55a6ef722978149a260ffb86757e3c, type: 2}
+  population_min: 11
+  population_max: 51
   mineTile: {fileID: 11400000, guid: 9e5cd1888a26c634c8f3984b2719f3dc, type: 2}
   mineCount: 5
   width: 20
@@ -603,7 +653,7 @@ GameObject:
   - component: {fileID: 873840220}
   - component: {fileID: 873840219}
   m_Layer: 0
-  m_Name: BotController (1)
+  m_Name: Bot_2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -625,15 +675,20 @@ MonoBehaviour:
   botTile: {fileID: 11400000, guid: 2ce586f732854a9418012b73c4033288, type: 2}
   population: 0
   populationPerCapture: 10
+  populationToCreateNewUnit: 600
+  newUnitArmySize: 500
+  baseArmyBonus: 100
+  maxArmyTokens: 5
   gold: 0
   goldPerIntervalByBase: 70
   goldGainedByMine: 30
   ownedMineCount: 0
   armyTokenPrefab: {fileID: 9127385153527895614, guid: 68e25fa859edc3e4a9f15dfed67aa23c, type: 3}
   armySprite: {fileID: 21300172, guid: 14aefffd3622c7347aad64f2bed35801, type: 3}
+  winLossMin: 0.8
+  winLossMax: 1.2
   botOwnerId: 1
   spawnNumber: 1
-  expansionInterval: 1
   visionRadius: 2
 --- !u!4 &873840220
 Transform:
@@ -661,7 +716,7 @@ GameObject:
   - component: {fileID: 1851286723}
   - component: {fileID: 1851286722}
   m_Layer: 0
-  m_Name: BotController
+  m_Name: Bot_1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -683,15 +738,20 @@ MonoBehaviour:
   botTile: {fileID: 11400000, guid: f570949cdbe5cee43a95ac972755bcce, type: 2}
   population: 0
   populationPerCapture: 10
+  populationToCreateNewUnit: 600
+  newUnitArmySize: 500
+  baseArmyBonus: 100
+  maxArmyTokens: 5
   gold: 0
   goldPerIntervalByBase: 70
   goldGainedByMine: 30
   ownedMineCount: 0
   armyTokenPrefab: {fileID: 9127385153527895614, guid: 68e25fa859edc3e4a9f15dfed67aa23c, type: 3}
   armySprite: {fileID: 21300170, guid: 14aefffd3622c7347aad64f2bed35801, type: 3}
+  winLossMin: 0.8
+  winLossMax: 1.2
   botOwnerId: 2
   spawnNumber: 2
-  expansionInterval: 1
   visionRadius: 2
 --- !u!4 &1851286723
 Transform:
@@ -716,5 +776,6 @@ SceneRoots:
   - {fileID: 619394802}
   - {fileID: 306375905}
   - {fileID: 225472701}
+  - {fileID: 219447687}
   - {fileID: 1851286723}
   - {fileID: 873840220}
