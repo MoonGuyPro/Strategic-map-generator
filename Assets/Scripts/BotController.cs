@@ -38,7 +38,7 @@ public class BotController : MonoBehaviour
     public int spawnNumber = 1;
 
     [Header("AI")]
-    public int visionRadius = 2;
+    public int visionRadius = 1;
 
     // wiele oddzia³ów
     private readonly List<ArmyToken> tokens = new();
@@ -206,6 +206,51 @@ public class BotController : MonoBehaviour
         if (index < 0 || index >= tokens.Count) return;
         tokens[index].TeleportToCell(map.tilemap, cell);
     }
+
+    // ---- PUBLIC API dla BotTurnManager (token vs token) ----
+
+    public int TokenCount => tokens.Count;
+
+    public Vector3Int GetTokenPos(int index) => tokenPositions[index];
+
+    public ArmyToken GetToken(int index) => tokens[index];
+
+    // Zwraca indeks tokena stoj¹cego na danym polu lub -1
+    public int FindTokenIndexAt(Vector3Int cellPos)
+    {
+        for (int i = 0; i < tokenPositions.Count; i++)
+            if (tokenPositions[i] == cellPos)
+                return i;
+        return -1;
+    }
+
+    // Zabicie tokena (u¿ywa Twojej istniej¹cej logiki)
+    public void KillTokenPublic(int tokenIndex)
+    {
+        KillToken(tokenIndex);
+    }
+
+    // Przejêcie pola po walce token vs token (¿eby kolor siê zmieni³)
+    public void ClaimTileAfterTokenBattle(Vector3Int pos)
+    {
+        if (!map.TryGetCell(pos, out var cell)) return;
+
+        int previousOwner = cell.ownerId;
+
+        map.SetOwnerAndTile(pos, botOwnerId, botTile);
+
+        // garnizon jak w Twojej logice terytorium
+        cell.army = populationPerCapture;
+
+        // kopalnia: +1 dla zwyciêzcy, -1 dla przegranego (opcjonalnie, ale sensowne)
+        if (cell.hasMine && previousOwner != botOwnerId)
+        {
+            ownedMineCount++;
+            // UWAGA: jeœli chcesz odejmowaæ przegranemu, to zrobimy to w TurnManagerze
+            // bo BotController nie zna przeciwnika.
+        }
+    }
+
 
     // ------------------------------------------------------------
     // Krok obok: neutralne najpierw, a gdy brak neutralnych -> wrogie (walka)

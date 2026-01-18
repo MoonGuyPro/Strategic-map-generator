@@ -15,7 +15,7 @@ public class BotTurnManager : MonoBehaviour
     private float timer;
     private bool initialized;
 
-    // kto ma teraz turê
+    // true => tura botA, false => tura botB
     private bool isATurn;
 
     private System.Collections.IEnumerator Start()
@@ -26,7 +26,7 @@ public class BotTurnManager : MonoBehaviour
             yield break;
         }
 
-        yield return null; // poczekaj a¿ mapy/boty zakoñcz¹ Start()
+        yield return null; // mapa + boty koñcz¹ Start()
 
         isATurn = randomizeFirstBot ? (Random.Range(0, 2) == 0) : true;
 
@@ -42,19 +42,76 @@ public class BotTurnManager : MonoBehaviour
         if (timer <= 0f)
         {
             timer = turnInterval;
-            RunSingleTurn();
+
+            if (isATurn)
+            {
+                botA.TakeTurn();
+                ResolveTokenBattles(botA, botB); // walka po turze A
+            }
+            else
+            {
+                botB.TakeTurn();
+                ResolveTokenBattles(botB, botA); // walka po turze B
+            }
+
+            // nastêpna tura: drugi bot
+            isATurn = !isATurn;
         }
     }
 
-    void RunSingleTurn()
+    // attackerMoved = bot, który w³aœnie skoñczy³ turê
+    void ResolveTokenBattles(BotController attackerMoved, BotController other)
     {
-        // Jedna "tura" = tylko jeden bot wykonuje swój ruch (i ruchy swoich tokenów)
-        if (isATurn)
-            botA.TakeTurn();
-        else
-            botB.TakeTurn();
+        // Iterujemy od koñca, bo bêdziemy usuwaæ tokeny
+        for (int i = attackerMoved.TokenCount - 1; i >= 0; i--)
+        {
+            Vector3Int pos = attackerMoved.GetTokenPos(i);
 
-        // prze³¹cz na nastêpnego
-        isATurn = !isATurn;
+            int j = other.FindTokenIndexAt(pos);
+            if (j < 0) continue;
+
+            ArmyToken aTok = attackerMoved.GetToken(i);
+            ArmyToken bTok = other.GetToken(j);
+
+            // Walka: wygrywa wiêksza armia
+            if (aTok.armySize == bTok.armySize)
+            {
+                // Remis: obaj gin¹ (najprostsze i uczciwe – jeœli chcesz inaczej, zmienimy)
+                attackerMoved.KillTokenPublic(i);
+                other.KillTokenPublic(j);
+                continue;
+            }
+
+            BotController winner = (aTok.armySize > bTok.armySize) ? attackerMoved : other;
+            BotController loser = (winner == attackerMoved) ? other : attackerMoved;
+
+            int winnerIndex = (winner == attackerMoved) ? i : j;
+            int loserIndex = (winner == attackerMoved) ? j : i;
+
+            ArmyToken wTok = winner.GetToken(winnerIndex);
+            ArmyToken lTok = loser.GetToken(loserIndex);
+
+            int loserArmy = lTok.armySize;
+
+            // Zwyciêzca traci 0.8..1.2 armii pokonanego (wg ustawieñ zwyciêzcy)
+            float mult = Random.Range(winner.winLossMin, winner.winLossMax);
+            int loss = Mathf.RoundToInt(loserArmy * mult);
+
+            // Zabij przegranego
+            loser.KillTokenPublic(loserIndex);
+
+            // Odejmij straty zwyciêzcy
+            wTok.armySize -= loss;
+
+            // Jeœli zwyciêzca te¿ spad³ do <=0, ginie
+            if (wTok.armySize <= 0)
+            {
+                winner.KillTokenPublic(winnerIndex);
+                continue;
+            }
+
+            // Zwyciêzca przejmuje pole (kolor/ownerId/garnizon)
+            winner.ClaimTileAfterTokenBattle(pos);
+        }
     }
 }
