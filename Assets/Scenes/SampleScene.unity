@@ -150,7 +150,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BotTurnManager
   botA: {fileID: 1851286722}
   botB: {fileID: 873840219}
-  turnInterval: 0.5
+  turnInterval: 0.1
   randomizeFirstBot: 1
 --- !u!4 &219447687
 Transform:
