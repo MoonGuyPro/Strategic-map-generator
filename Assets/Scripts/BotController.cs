@@ -39,8 +39,6 @@ public class BotController : MonoBehaviour
 
     [Header("AI")]
     public int visionRadius = 1;
-    public UtilityAIController utilityAI;
-
 
     // wiele oddzia³ów
     private readonly List<ArmyToken> tokens = new();
@@ -109,20 +107,34 @@ public class BotController : MonoBehaviour
         Vector3Int currentPos = tokenPositions[unitIndex];
         Vector3Int lastPos = tokenLastPositions[unitIndex];
 
-        // NOWA LOGIKA: Utility AI wybiera najlepszy krok (jedno pole s¹siednie)
-        if (utilityAI != null && utilityAI.TryGetBestStep(unitIndex, currentPos, lastPos, out var bestStep))
+        // 1) krok obok: priorytet neutralne, a gdy brak neutralnych - wrogie (walka)
+        if (TryChooseBestAdjacentStep(currentPos, lastPos, out var bestAdjacent))
         {
-            bool aliveAndMoved = TryEnterCell(unitIndex, bestStep);
+            bool aliveAndMoved = TryEnterCell(unitIndex, bestAdjacent);
             if (aliveAndMoved && unitIndex < tokens.Count) // token móg³ umrzeæ
             {
                 tokenLastPositions[unitIndex] = currentPos;
-                tokenPositions[unitIndex] = bestStep;
-                UpdateToken(unitIndex, bestStep);
+                tokenPositions[unitIndex] = bestAdjacent;
+                UpdateToken(unitIndex, bestAdjacent);
             }
             return;
         }
 
-        // Fallback awaryjny - jakby utilityAI nie by³o przypisane
+        // 2) jeœli nie ma sensownego kroku obok - idŸ w kierunku najlepszego celu widocznego z terytorium
+        if (TryMoveTowardsBestVisibleTarget(currentPos, lastPos, out var moveStep))
+        {
+            bool aliveAndMoved = TryEnterCell(unitIndex, moveStep);
+            if (aliveAndMoved && unitIndex < tokens.Count)
+            {
+                tokenLastPositions[unitIndex] = currentPos;
+                tokenPositions[unitIndex] = moveStep;
+                UpdateToken(unitIndex, moveStep);
+            }
+            return;
+        }
+
+
+        // 3) ostateczny fallback (losowo)
         if (TryMoveFallbackRandom(currentPos, lastPos, out var randomStep))
         {
             bool aliveAndMoved = TryEnterCell(unitIndex, randomStep);
@@ -134,7 +146,6 @@ public class BotController : MonoBehaviour
             }
         }
     }
-
 
     // ------------------------------------------------------------
     // Rekrutacja nowego oddzia³u
@@ -240,6 +251,38 @@ public class BotController : MonoBehaviour
         }
     }
 
+
+    // ------------------------------------------------------------
+    // Krok obok: neutralne najpierw, a gdy brak neutralnych -> wrogie (walka)
+    // ------------------------------------------------------------
+    bool TryChooseBestAdjacentStep(Vector3Int currentPos, Vector3Int lastPos, out Vector3Int bestStep)
+    {
+        bestStep = default;
+
+        var neighbours = map.GetNeighbours(currentPos);
+
+        List<Vector3Int> neutral = new();
+        List<Vector3Int> enemy = new();
+
+        foreach (var n in neighbours)
+        {
+            if (!map.IsPassableLand(n)) continue;
+            if (n == lastPos) continue;
+
+            int owner = map.GetOwnerId(n);
+            if (owner == 0) neutral.Add(n);
+            else if (owner != botOwnerId) enemy.Add(n);
+        }
+
+        if (neutral.Count > 0)
+            return PickBestByMineThenPop(neutral, out bestStep);
+
+        if (enemy.Count > 0)
+            return PickBestByMineThenPop(enemy, out bestStep);
+
+        return false;
+    }
+
     bool PickBestByMineThenPop(List<Vector3Int> candidates, out Vector3Int bestStep)
     {
         bestStep = default;
@@ -264,6 +307,97 @@ public class BotController : MonoBehaviour
         }
 
         return found;
+    }
+
+    // ------------------------------------------------------------
+    // Marsz do najlepszego celu widocznego z terytorium (neutralne)
+    // (gdy obok nie ma neutralnych)
+    // ------------------------------------------------------------
+    bool TryMoveTowardsBestVisibleTarget(Vector3Int currentPos, Vector3Int lastPos, out Vector3Int step)
+    {
+        step = default;
+
+        HashSet<Vector3Int> visibleSet = GetTerritoryVision(visionRadius);
+
+        // 1) najpierw spróbuj znaleŸæ neutralny cel
+        Vector3Int? bestNeutral = null;
+        int bestNeutralDist = int.MaxValue;
+        int bestNeutralScore = int.MinValue;
+
+        // 2) jeœli nie ma neutralnych, szukamy wrogiego celu (do ataku)
+        Vector3Int? bestEnemy = null;
+        int bestEnemyDist = int.MaxValue;
+        int bestEnemyScore = int.MinValue;
+
+        foreach (var pos in visibleSet)
+        {
+            if (!map.TryGetCell(pos, out var cell)) continue;
+            if (!cell.passable) continue;
+
+            int owner = cell.ownerId;
+            if (owner == botOwnerId) continue; // swoje nie jest celem
+
+            int dist = HexDist(currentPos, pos);
+
+            int score = 0;
+            if (cell.hasMine) score += 1_000_000;
+            score += cell.populationNumber;
+
+            if (owner == 0)
+            {
+                // neutralne: minimalny dystans, potem max score
+                if (dist < bestNeutralDist || (dist == bestNeutralDist && score > bestNeutralScore))
+                {
+                    bestNeutralDist = dist;
+                    bestNeutralScore = score;
+                    bestNeutral = pos;
+                }
+            }
+            else
+            {
+                // wrogie: minimalny dystans, potem max score
+                if (dist < bestEnemyDist || (dist == bestEnemyDist && score > bestEnemyScore))
+                {
+                    bestEnemyDist = dist;
+                    bestEnemyScore = score;
+                    bestEnemy = pos;
+                }
+            }
+        }
+
+        // wybieramy cel: neutralne jeœli istnieje, w przeciwnym razie wrogie
+        Vector3Int? target = bestNeutral ?? bestEnemy;
+        if (!target.HasValue) return false;
+
+        // idŸ o 1 krok w stronê celu
+        if (!map.TryGetNextStep(currentPos, target.Value, out var nextStep))
+            return false;
+
+        // unikaj cofania jeœli siê da
+        if (nextStep == lastPos)
+        {
+            var neighbours = map.GetNeighbours(currentPos);
+            int bestDist = HexDist(nextStep, target.Value);
+            Vector3Int bestAlt = nextStep;
+
+            foreach (var n in neighbours)
+            {
+                if (!map.IsPassableLand(n)) continue;
+                if (n == lastPos) continue;
+
+                int d = HexDist(n, target.Value);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    bestAlt = n;
+                }
+            }
+
+            nextStep = bestAlt;
+        }
+
+        step = nextStep;
+        return true;
     }
 
 

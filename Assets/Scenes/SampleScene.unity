@@ -652,7 +652,6 @@ GameObject:
   m_Component:
   - component: {fileID: 873840220}
   - component: {fileID: 873840219}
-  - component: {fileID: 873840221}
   m_Layer: 0
   m_Name: Bot_2
   m_TagString: Untagged
@@ -691,7 +690,6 @@ MonoBehaviour:
   botOwnerId: 1
   spawnNumber: 1
   visionRadius: 2
-  utilityAI: {fileID: 873840221}
 --- !u!4 &873840220
 Transform:
   m_ObjectHideFlags: 0
@@ -707,40 +705,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &873840221
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 873840218}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9223c5b5c6d2ff848a58dc16be359a45, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::UtilityAIController
-  self: {fileID: 873840219}
-  enemy: {fileID: 1851286722}
-  map: {fileID: 225472700}
-  moveRadius: 1
-  weights:
-    mineBase: 1000000
-    minePopFactor: 50
-    neutralAdjBase: 200000
-    neutralAdjPopFactor: 1000
-    neutralBorderDirBase: 150000
-    neutralBorderDirPopFactor: 800
-    neutralBorderDirDistancePenalty: 5000
-    attackEnemyBase: 900000
-    attackEnemyToken: 700000
-    enemyAdjBase: 120000
-    enemyAdjPopFactor: 1000
-    enemyAdjMineBonus: 300000
-    enemyBorderDirBase: 100000
-    enemyBorderDirPopFactor: 700
-    enemyBorderDirDistancePenalty: 5000
-    backtrackPenalty: 50000
-    invalidMovePenalty: 10000000
 --- !u!1 &1851286721
 GameObject:
   m_ObjectHideFlags: 0
@@ -751,7 +715,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1851286723}
   - component: {fileID: 1851286722}
-  - component: {fileID: 1851286724}
   m_Layer: 0
   m_Name: Bot_1
   m_TagString: Untagged
@@ -790,7 +753,6 @@ MonoBehaviour:
   botOwnerId: 2
   spawnNumber: 2
   visionRadius: 2
-  utilityAI: {fileID: 1851286724}
 --- !u!4 &1851286723
 Transform:
   m_ObjectHideFlags: 0
@@ -806,40 +768,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1851286724
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1851286721}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9223c5b5c6d2ff848a58dc16be359a45, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::UtilityAIController
-  self: {fileID: 1851286722}
-  enemy: {fileID: 873840219}
-  map: {fileID: 225472700}
-  moveRadius: 1
-  weights:
-    mineBase: 1000000
-    minePopFactor: 50
-    neutralAdjBase: 200000
-    neutralAdjPopFactor: 1000
-    neutralBorderDirBase: 150000
-    neutralBorderDirPopFactor: 800
-    neutralBorderDirDistancePenalty: 5000
-    attackEnemyBase: 900000
-    attackEnemyToken: 700000
-    enemyAdjBase: 120000
-    enemyAdjPopFactor: 1000
-    enemyAdjMineBonus: 300000
-    enemyBorderDirBase: 100000
-    enemyBorderDirPopFactor: 700
-    enemyBorderDirDistancePenalty: 5000
-    backtrackPenalty: 50000
-    invalidMovePenalty: 10000000
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
