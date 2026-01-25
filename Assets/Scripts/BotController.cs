@@ -140,36 +140,64 @@ public class BotController : MonoBehaviour
         int attackerArmy = tokens[unitIndex].armySize;
 
         // Zasiêg "ruchu" (wyszukiwania celu)
-        List<Vector3Int> inRange = map.GetCellsInRange(currentPos, visionRadius);
+        List<Vector3Int> inRange = map.GetNeighbours(currentPos);
 
         // 1) Kopalnie w zasiêgu -> idŸ na nie (preferuj bli¿sze)
         if (TryPickMineTarget(inRange, currentPos, attackerArmy, out var t1))
+        {
+            Debug.Log($"Bot: '{botOwnerId}' Cel: Kopalnia");
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t1, out step);
+        }
+
 
         // 2) Neutral z najwiêksz¹ populacj¹ w zasiêgu -> idŸ na niego
         if (TryPickNeutralMaxPopInRange(inRange, currentPos, out var t2))
+        {
+            Debug.Log($"Bot: '{botOwnerId}' Cel: Pole neutralne w zasiêgu");
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t2, out step);
+        }
+
 
         // 3) Neutral border (graniczy z moim terytorium) z najwiêksz¹ populacj¹ -> idŸ w jego kierunku
         if (TryPickNeutralBorderMaxPop(currentPos, out var t3))
+        {
+            Debug.Log($"Bot: '{botOwnerId}' Cel: Neutral border");
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t3, out step);
+        }
+
 
         // 4) Baza przeciwnika w zasiêgu -> zaatakuj, jeœli masz wiêksz¹ armiê ni¿ pole
         if (TryPickEnemyBaseInRange(currentPos, attackerArmy, out var t4))
+        {
+            Debug.Log($"Bot: '{botOwnerId}' Cel: Baza przeciwnika w zasiêgu");
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t4, out step);
+        }
+
 
         // 5) Token przeciwnika w zasiêgu -> zaatakuj, jeœli masz wiêksz¹ armiê
         if (TryPickEnemyTokenInRange(currentPos, attackerArmy, out var t5))
+        {
+            Debug.Log($"Bot: '{botOwnerId}' Cel: Token przeciwnika w zasiêgu");
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t5, out step);
+        }
+
 
         // 6) Pole przeciwnika z najwiêksz¹ populacj¹ w zasiêgu -> zaatakuj (tu bez warunku "mam wiêksz¹", bo punkt nie mówi,
         // ale ¯EBY NIE ROBIÆ SAMOBÓJSTW filtrujê tylko atakowalne)
         if (TryPickEnemyMaxPopInRangeAttackable(inRange, currentPos, attackerArmy, out var t6))
+        {
+            Debug.Log($"Bot: '{botOwnerId}' Cel: Atak na pole przeciwnika w zasiêgu");
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t6, out step);
+        }
+
 
         // 7) Pole przeciwnika border z najwiêksz¹ populacj¹ -> idŸ w jego kierunku
         if (TryPickEnemyBorderMaxPop(currentPos, out var t7))
+        {
+            Debug.Log($"Bot: '{botOwnerId}' Cel: Atak na pole przeciwnika border z najwiêksz¹ populacj¹");
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t7, out step);
+        }
+
 
         return false;
     }
@@ -185,6 +213,8 @@ public class BotController : MonoBehaviour
 
         foreach (var p in inRange)
         {
+            //Debug.Log($"dist Hex={HexDist(currentPos, p)} bfs={TileDistBFS(currentPos, p, 5)} vision={visionRadius} p={p}");
+            if (TileDistBFS(currentPos, p, visionRadius) > visionRadius) continue;
             if (!map.TryGetCell(p, out var cell)) continue;
             if (!cell.passable) continue;
             if (!cell.hasMine) continue;
@@ -227,6 +257,7 @@ public class BotController : MonoBehaviour
 
         foreach (var p in inRange)
         {
+            if (TileDistBFS(currentPos, p, visionRadius) > visionRadius) continue;
             if (!map.TryGetCell(p, out var cell)) continue;
             if (!cell.passable) continue;
             if (cell.ownerId != 0) continue; // tylko neutral
@@ -289,6 +320,7 @@ public class BotController : MonoBehaviour
         Vector3Int enemyBase = enemyBot.SpawnPos;
         if (HexDist(currentPos, enemyBase) > visionRadius) return false;
 
+
         if (!map.TryGetCell(enemyBase, out var cell)) return false;
         if (!cell.passable) return false;
         if (cell.ownerId == botOwnerId) return false; // ju¿ nasze
@@ -346,6 +378,7 @@ public class BotController : MonoBehaviour
 
         foreach (var p in inRange)
         {
+            if (TileDistBFS(currentPos, p, visionRadius) > visionRadius) continue;
             if (!map.TryGetCell(p, out var cell)) continue;
             if (!cell.passable) continue;
 
@@ -817,4 +850,37 @@ public class BotController : MonoBehaviour
         int y = -x - z;
         return new Vector3Int(x, y, z);
     }
+
+    int TileDistBFS(Vector3Int start, Vector3Int goal, int maxDepth)
+    {
+        if (start == goal) return 0;
+
+        var q = new Queue<Vector3Int>();
+        var dist = new Dictionary<Vector3Int, int>();
+
+        q.Enqueue(start);
+        dist[start] = 0;
+
+        while (q.Count > 0)
+        {
+            var cur = q.Dequeue();
+            int d = dist[cur];
+            if (d >= maxDepth) continue;
+
+            foreach (var n in map.GetNeighbours(cur))
+            {
+                if (!map.IsPassableLand(n)) continue;
+                if (dist.ContainsKey(n)) continue;
+
+                int nd = d + 1;
+                if (n == goal) return nd;
+
+                dist[n] = nd;
+                q.Enqueue(n);
+            }
+        }
+
+        return int.MaxValue; // poza zasiêgiem
+    }
+
 }
