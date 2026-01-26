@@ -28,6 +28,9 @@ public class BotController : MonoBehaviour
     public ArmyToken armyTokenPrefab;
     public Sprite armySprite;
 
+    [Header("Baza")]
+    public GameObject basePrefab;   
+
     [Header("Walka")]
     [Range(0f, 2f)] public float winLossMin = 0.8f;
     [Range(0f, 2f)] public float winLossMax = 1.2f;
@@ -52,6 +55,7 @@ public class BotController : MonoBehaviour
     private Vector3Int spawnPos;
     private bool initialized;
 
+    private GameObject spawnedBase;
     public Vector3Int SpawnPos => spawnPos;
 
     private System.Collections.IEnumerator Start()
@@ -62,12 +66,18 @@ public class BotController : MonoBehaviour
             yield break;
         }
 
-        yield return null;
+        // Czekamy a¿ generator mapy skoñczy (to jest sens IsGenerated)
+        while (!map.IsGenerated)
+            yield return null;
 
         spawnPos = (spawnNumber == 2) ? map.spawnPosPlayer2 : map.spawnPosPlayer1;
 
+        // baza ma byæ nasza na start
         map.SetOwnerAndTile(spawnPos, botOwnerId, botTile);
 
+        SpawnBase();
+
+        // token ma wystartowaæ w bazie
         int tokenIndex = SpawnToken(spawnPos, initialArmySize: 300);
         if (tokenIndex >= 0)
         {
@@ -78,12 +88,14 @@ public class BotController : MonoBehaviour
         initialized = true;
     }
 
+
     // ------------------------------------------------------------
     // TURA
     // ------------------------------------------------------------
     public void TakeTurn()
     {
         if (!initialized) return;
+        if (map.GetOwnerId(spawnPos) != botOwnerId) return;
         DoTurn();
     }
 
@@ -555,23 +567,49 @@ public class BotController : MonoBehaviour
     // ------------------------------------------------------------
     // Rekrutacja
     // ------------------------------------------------------------
-    void TryCreateNewUnitFromPopulation()
+    Vector3Int GetSpawnCellForNewToken()
     {
-        if (tokens.Count >= maxArmyTokens) return;
-        if (population < populationToCreateNewUnit) return;
+        // 1) Baza jeœli wolna
+        if (FindTokenIndexAt(spawnPos) == -1)
+            return spawnPos;
 
-        population -= populationToCreateNewUnit;
-
-        int idx = SpawnToken(spawnPos, initialArmySize: newUnitArmySize);
-        if (idx >= 0)
+        // 2) Jeœli baza zajêta, szukamy wolnego s¹siada (pierwszy wolny)
+        var neighbours = map.GetNeighbours(spawnPos);
+        foreach (var n in neighbours)
         {
-            tokenPositions[idx] = spawnPos;
-            tokenLastPositions[idx] = spawnPos;
+            if (!map.IsPassableLand(n)) continue;
+            if (FindTokenIndexAt(n) != -1) continue;
+            return n;
         }
 
-        if (map.TryGetCell(spawnPos, out var baseCell))
-            baseCell.army += baseArmyBonus;
+        // 3) Awaryjnie: baza (stack)
+        return spawnPos;
     }
+
+    void TryCreateNewUnitFromPopulation()
+    {
+        // jeœli baza przejêta - nie tworzymy
+        if (map.GetOwnerId(spawnPos) != botOwnerId) return;
+
+        // tworzymy tyle tokenów ile siê da: zasoby + limit
+        while (tokens.Count < maxArmyTokens && population >= populationToCreateNewUnit)
+        {
+            population -= populationToCreateNewUnit;
+
+            Vector3Int spawnCell = GetSpawnCellForNewToken();
+
+            int idx = SpawnToken(spawnCell, initialArmySize: newUnitArmySize);
+            if (idx >= 0)
+            {
+                tokenPositions[idx] = spawnCell;
+                tokenLastPositions[idx] = spawnCell;
+            }
+
+            if (map.TryGetCell(spawnPos, out var baseCell))
+                baseCell.army += baseArmyBonus;
+        }
+    }
+
 
     // ------------------------------------------------------------
     // Tokeny
@@ -882,5 +920,22 @@ public class BotController : MonoBehaviour
 
         return int.MaxValue; // poza zasiêgiem
     }
+
+    void SpawnBase()
+    {
+        if (spawnedBase != null) return;
+
+        if (basePrefab == null)
+        {
+            Debug.LogError($"BotController[{botOwnerId}]: basePrefab NIE JEST PRZYPISANY!");
+            return;
+        }
+
+        Vector3 worldPos = map.tilemap.GetCellCenterWorld(spawnPos);
+
+        spawnedBase = Instantiate(basePrefab, worldPos, Quaternion.identity, transform);
+        spawnedBase.name = $"Base_Bot_{botOwnerId}";
+    }
+
 
 }

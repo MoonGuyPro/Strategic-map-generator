@@ -152,6 +152,7 @@ MonoBehaviour:
   botB: {fileID: 873840219}
   turnInterval: 0.1
   randomizeFirstBot: 1
+  freezeTimeOnGameOver: 1
 --- !u!4 &219447687
 Transform:
   m_ObjectHideFlags: 0
@@ -684,12 +685,14 @@ MonoBehaviour:
   goldGainedByMine: 30
   ownedMineCount: 0
   armyTokenPrefab: {fileID: 9127385153527895614, guid: 68e25fa859edc3e4a9f15dfed67aa23c, type: 3}
-  armySprite: {fileID: 21300172, guid: 14aefffd3622c7347aad64f2bed35801, type: 3}
+  armySprite: {fileID: 21300170, guid: 14aefffd3622c7347aad64f2bed35801, type: 3}
+  basePrefab: {fileID: 2884706003710122822, guid: f458ed32143604a40bb5f3b91340cb6d, type: 3}
   winLossMin: 0.8
   winLossMax: 1.2
   botOwnerId: 1
   spawnNumber: 1
   visionRadius: 2
+  enemyBot: {fileID: 1851286722}
 --- !u!4 &873840220
 Transform:
   m_ObjectHideFlags: 0
@@ -747,12 +750,14 @@ MonoBehaviour:
   goldGainedByMine: 30
   ownedMineCount: 0
   armyTokenPrefab: {fileID: 9127385153527895614, guid: 68e25fa859edc3e4a9f15dfed67aa23c, type: 3}
-  armySprite: {fileID: 21300170, guid: 14aefffd3622c7347aad64f2bed35801, type: 3}
+  armySprite: {fileID: 21300172, guid: 14aefffd3622c7347aad64f2bed35801, type: 3}
+  basePrefab: {fileID: 2884706003710122822, guid: f458ed32143604a40bb5f3b91340cb6d, type: 3}
   winLossMin: 0.8
   winLossMax: 1.2
   botOwnerId: 2
   spawnNumber: 2
   visionRadius: 2
+  enemyBot: {fileID: 873840219}
 --- !u!4 &1851286723
 Transform:
   m_ObjectHideFlags: 0

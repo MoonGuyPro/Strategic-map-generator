@@ -39,8 +39,12 @@ public class HexMapGenerator : MonoBehaviour
     public Vector3Int spawnPosPlayer1;
     public Vector3Int spawnPosPlayer2;
 
+    public bool IsGenerated { get; private set; }
+
     void Start()
     {
+        IsGenerated = false;
+
         if (tilemap == null)
         {
             Debug.LogError("HexMapGenerator: tilemap nie jest przypisana!");
@@ -57,11 +61,10 @@ public class HexMapGenerator : MonoBehaviour
         GenerateMines();
 
         RefreshDebugList();
+
+        IsGenerated = true;
     }
 
-    // ------------------------------------------------------------
-    // GENEROWANIE MAPY + HexCell
-    // ------------------------------------------------------------
     void GenerateMap()
     {
         cells.Clear();
@@ -77,7 +80,7 @@ public class HexMapGenerator : MonoBehaviour
                 TileBase tileToPlace = isWater ? waterTile : grassTile;
                 tilemap.SetTile(pos, tileToPlace);
 
-                int population = isWater ? 0 : Random.Range(population_min, population_max); // 10–100
+                int population = isWater ? 0 : Random.Range(population_min, population_max); // 10ï¿½100
 
                 HexCell cell = new HexCell
                 {
@@ -96,35 +99,39 @@ public class HexMapGenerator : MonoBehaviour
     }
 
     // ------------------------------------------------------------
-    // GENEROWANIE SPAWNÓW
+    // GENEROWANIE SPAWNï¿½W
     // ------------------------------------------------------------
     void GeneratePlayerSpawns()
     {
-        // Kandydaci na spawny – tylko l¹d i przechodnie pola
+        // Kandydaci na spawny – tylko l¹d i przechodnie pola + musi mieæ 6 przechodnich s¹siadów
         List<HexCell> candidates = new List<HexCell>();
         foreach (var kvp in cells)
         {
             HexCell cell = kvp.Value;
-            if (cell.passable && !cell.isWater)
-                candidates.Add(cell);
+            if (!cell.passable || cell.isWater) continue;
+            if (!IsGoodSpawnCell(cell.coord)) continue;
+
+            candidates.Add(cell);
         }
 
         if (candidates.Count < 2)
         {
-            Debug.LogError("Za ma³o l¹du, ¿eby wygenerowaæ 2 spawny.");
+            Debug.LogError("Za ma³o poprawnych pól (z 6 przechodnimi s¹siadami), ¿eby wygenerowaæ 2 spawny.");
             return;
         }
 
-        // 1. Losujemy pierwszy spawn
+        // 1) Losujemy spawn1 z dobrych kandydatów
         HexCell spawn1 = candidates[Random.Range(0, candidates.Count)];
 
-        // 2. Szukamy pól w odpowiedniej odleg³oœci + najdalszego
+        // 2) Szukamy spawn2: spe³nia minSpawnDistance, a jeœli siê nie da to bierzemy najdalszy
         List<HexCell> farEnough = new List<HexCell>();
-        int maxDist = 0;
+        int maxDist = -1;
         HexCell farthest = null;
 
         foreach (HexCell cell in candidates)
         {
+            if (cell == spawn1) continue;
+
             int d = HexDistanceOddR(spawn1.coord, cell.coord);
 
             if (d > maxDist)
@@ -137,22 +144,15 @@ public class HexMapGenerator : MonoBehaviour
                 farEnough.Add(cell);
         }
 
-        HexCell spawn2;
-        if (farEnough.Count > 0)
-        {
-            spawn2 = farEnough[Random.Range(0, farEnough.Count)];
-        }
-        else
-        {
-            Debug.LogWarning($"Brak pola w odleg³oœci >= {minSpawnDistance}. U¿ywam najdalszego (dist={maxDist}).");
-            spawn2 = farthest;
-        }
+        HexCell spawn2 = (farEnough.Count > 0)
+            ? farEnough[Random.Range(0, farEnough.Count)]
+            : farthest;
 
         // Ustawiamy stan
         spawn1.isSpawn = true;
         spawn2.isSpawn = true;
-        spawn1.ownerId = 1;  // gracz/bot 1
-        spawn2.ownerId = 2;  // gracz/bot 2
+        spawn1.ownerId = 1;
+        spawn2.ownerId = 2;
 
         spawnPosPlayer1 = spawn1.coord;
         spawnPosPlayer2 = spawn2.coord;
@@ -164,40 +164,53 @@ public class HexMapGenerator : MonoBehaviour
         Debug.Log($"Spawn1: {spawn1.coord}, Spawn2: {spawn2.coord}, dist = {HexDistanceOddR(spawn1.coord, spawn2.coord)}");
     }
 
+
     // ------------------------------------------------------------
     // GENEROWANIE KOPALNI
     // ------------------------------------------------------------
     void GenerateMines()
     {
-        // kandydaci: l¹d, przechodnie, nie-spawn, bez kopalni
+        // pola zakazane dla kopalni: spawn + s¹siedzi spawnów
+        HashSet<Vector3Int> forbidden = BuildForbiddenMineCells();
+
+        // kandydaci: l¹d, przechodnie, nie-spawn, bez kopalni, nie w forbidden
         List<HexCell> candidates = new List<HexCell>();
         foreach (var kvp in cells)
         {
             HexCell cell = kvp.Value;
-            if (cell.passable && !cell.isWater && !cell.isSpawn && !cell.hasMine)
-                candidates.Add(cell);
+
+            if (!cell.passable || cell.isWater) continue;
+            if (cell.isSpawn) continue;
+            if (cell.hasMine) continue;
+            if (forbidden.Contains(cell.coord)) continue;
+
+            candidates.Add(cell);
         }
 
-        if (candidates.Count == 0)
-        {
-            Debug.LogWarning("Brak pól, na których mo¿na postawiæ kopalnie.");
-            return;
-        }
+        if (candidates.Count == 0) return;
 
-        int minesToPlace = Mathf.Min(mineCount, candidates.Count);
+        // ¿eby by³o stabilniej: losowo tasujemy i idziemy po kolei
+        Shuffle(candidates);
 
-        for (int i = 0; i < minesToPlace; i++)
+        int placed = 0;
+
+        for (int i = 0; i < candidates.Count && placed < mineCount; i++)
         {
-            int index = Random.Range(0, candidates.Count);
-            HexCell cell = candidates[index];
-            candidates.RemoveAt(index);
+            HexCell cell = candidates[i];
+
+            // warunek: ¿aden s¹siad nie ma kopalni
+            if (!CanPlaceMineHere(cell.coord))
+                continue;
 
             cell.hasMine = true;
             tilemap.SetTile(cell.coord, mineTile);
+            placed++;
         }
 
-        Debug.Log($"Wygenerowano {minesToPlace} kopalni.");
+        if (placed < mineCount)
+            Debug.LogWarning($"Nie uda³o siê postawiæ wszystkich kopalni. Postawiono {placed}/{mineCount} (za ma³o miejsca przez ograniczenia).");
     }
+
 
     void RefreshDebugList()
     {
@@ -226,10 +239,7 @@ public class HexMapGenerator : MonoBehaviour
         return new Vector3Int(x, y, z);
     }
 
-    // ------------------------------------------------------------
-    // PUBLICZNE API DLA BOTA / GRY
-    // ------------------------------------------------------------
-
+    // API
     public bool TryGetCell(Vector3Int coord, out HexCell cell) => cells.TryGetValue(coord, out cell);
 
     public bool IsPassableLand(Vector3Int coord)
@@ -293,37 +303,6 @@ public class HexMapGenerator : MonoBehaviour
         return result;
     }
 
-    // Pola w zasiêgu <= radius (BFS po przechodnich)
-    public List<Vector3Int> GetCellsInRange(Vector3Int start, int radius)
-    {
-        var result = new List<Vector3Int>();
-        var q = new Queue<(Vector3Int pos, int dist)>();
-        var visited = new HashSet<Vector3Int>();
-
-        visited.Add(start);
-        q.Enqueue((start, 0));
-
-        while (q.Count > 0)
-        {
-            var (p, d) = q.Dequeue();
-            result.Add(p);
-
-            if (d == radius) continue;
-
-            foreach (var n in GetNeighbours(p))
-            {
-                if (visited.Contains(n)) continue;
-                if (!IsPassableLand(n)) continue;
-
-                visited.Add(n);
-                q.Enqueue((n, d + 1));
-            }
-        }
-
-        return result;
-    }
-
-    // Najbli¿szy kolejny krok (1 pole) z from -> target (BFS po przechodnich)
     public bool TryGetNextStep(Vector3Int from, Vector3Int target, out Vector3Int nextStep)
     {
         nextStep = from;
@@ -363,4 +342,67 @@ public class HexMapGenerator : MonoBehaviour
         nextStep = cur;
         return true;
     }
+
+    bool IsGoodSpawnCell(Vector3Int pos)
+    {
+        // musi byæ l¹dem i przechodnie (dla pewnoœci)
+        if (!cells.TryGetValue(pos, out var c)) return false;
+        if (!c.passable || c.isWater) return false;
+
+        // wszystkie 6 s¹siadów musi istnieæ i byæ przechodnim l¹dem
+        var neigh = GetNeighbours(pos);
+        if (neigh.Count < 6) return false; // krawêdŸ mapy odpada
+
+        foreach (var n in neigh)
+        {
+            if (!cells.TryGetValue(n, out var nc)) return false;
+            if (!nc.passable || nc.isWater) return false;
+        }
+
+        return true;
+    }
+
+    HashSet<Vector3Int> BuildForbiddenMineCells()
+    {
+        var forbidden = new HashSet<Vector3Int>();
+
+        // spawn + s¹siedzi spawnów
+        void AddSpawnBlock(Vector3Int spawn)
+        {
+            forbidden.Add(spawn);
+            foreach (var n in GetNeighbours(spawn))
+                forbidden.Add(n);
+        }
+
+        AddSpawnBlock(spawnPosPlayer1);
+        AddSpawnBlock(spawnPosPlayer2);
+
+        return forbidden;
+    }
+
+    bool CanPlaceMineHere(Vector3Int pos)
+    {
+        // pole musi istnieæ i byæ sensowne
+        if (!cells.TryGetValue(pos, out var c)) return false;
+        if (!c.passable || c.isWater || c.isSpawn || c.hasMine) return false;
+
+        // s¹siedzi kopalni nie mog¹ byæ kopalni¹
+        foreach (var n in GetNeighbours(pos))
+        {
+            if (cells.TryGetValue(n, out var nc) && nc.hasMine)
+                return false;
+        }
+
+        return true;
+    }
+
+    void Shuffle<T>(List<T> list)
+    {
+        for (int i = list.Count - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            (list[i], list[j]) = (list[j], list[i]);
+        }
+    }
+
 }
