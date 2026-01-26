@@ -28,6 +28,11 @@ public class BotController : MonoBehaviour
     public ArmyToken armyTokenPrefab;
     public Sprite armySprite;
 
+    [Header("Limity armii")]
+    public int baseArmyCap = 600;                 // limit armii na polu bazy
+    public int tokenArmyCapStart = 500;           // pocz¹tkowy limit armii w tokenie
+    public int tokenArmyCapIncreasePerInterval = 100; // +100 co 15 tur
+
     [Header("Baza")]
     public GameObject basePrefab;   
 
@@ -54,6 +59,7 @@ public class BotController : MonoBehaviour
 
     private Vector3Int spawnPos;
     private bool initialized;
+    private int tokenArmyCap;
 
     // ------------------------------------------------------------
     // Populacja pasywna co X tur
@@ -85,6 +91,12 @@ public class BotController : MonoBehaviour
         // baza ma byæ nasza na start
         map.SetOwnerAndTile(spawnPos, botOwnerId, botTile);
 
+        tokenArmyCap = tokenArmyCapStart;
+
+        if (map.TryGetCell(spawnPos, out var baseCell))
+            baseCell.army = Mathf.Clamp(baseCell.army, 0, baseArmyCap);
+
+
         SpawnBase();
 
         // token ma wystartowaæ w bazie
@@ -114,9 +126,14 @@ public class BotController : MonoBehaviour
         // tura bota
         turnCounter++;
 
-        // co 15 tur dodaj populacjê zale¿n¹ od posiadanych pól
+        // co X tur: +pop +zwiêksz limit tokenów +spróbuj dobiæ tokeny do nowego limitu (z populacji)
         if (populationIncomeIntervalTurns > 0 && (turnCounter % populationIncomeIntervalTurns) == 0)
+        {
             AddPopulationFromOwnedTiles();
+            IncreaseTokenArmyCap();
+            RefillAllTokensUpToCapFromPopulation();
+        }
+
 
         GainGoldForTurn();
         TryCreateNewUnitFromPopulation();
@@ -147,6 +164,38 @@ public class BotController : MonoBehaviour
 
         // opcjonalnie debug
         Debug.LogWarning($"Bot[{botOwnerId}] +{gained} pop (10% z sumy {sum}) co {populationIncomeIntervalTurns} tur. Pop={population}");
+    }
+
+    void IncreaseTokenArmyCap()
+    {
+        tokenArmyCap += tokenArmyCapIncreasePerInterval;
+        //ogranicz maksymalny cap np. do 2000:
+        tokenArmyCap = Mathf.Min(tokenArmyCap, 1000);
+
+        Debug.LogWarning($"Bot[{botOwnerId}] tokenArmyCap zwiêkszony do {tokenArmyCap}");
+    }
+
+    void RefillAllTokensUpToCapFromPopulation()
+    {
+        // dobijamy istniej¹ce tokeny do nowego limitu (z populacji)
+        for (int i = 0; i < tokens.Count; i++)
+            RefillTokenUpToCapFromPopulation(i);
+    }
+
+    void RefillTokenUpToCapFromPopulation(int tokenIndex)
+    {
+        if (tokenIndex < 0 || tokenIndex >= tokens.Count) return;
+        if (population <= 0) return;
+
+        var tok = tokens[tokenIndex];
+        if (tok == null) return;
+
+        int need = Mathf.Max(0, tokenArmyCap - tok.armySize);
+        if (need <= 0) return;
+
+        int add = Mathf.Min(need, population);
+        tok.armySize += add;
+        population -= add;
     }
 
 
@@ -641,15 +690,20 @@ public class BotController : MonoBehaviour
 
             Vector3Int spawnCell = GetSpawnCellForNewToken();
 
-            int idx = SpawnToken(spawnCell, initialArmySize: newUnitArmySize);
+            int idx = SpawnToken(spawnCell, initialArmySize: 0); // start 0, potem dobijamy z populacji
             if (idx >= 0)
             {
                 tokenPositions[idx] = spawnCell;
                 tokenLastPositions[idx] = spawnCell;
+
+                // nowy oddzia³ ma d¹¿yæ do tokenArmyCap, ale tylko jeœli populacja pozwala
+                RefillTokenUpToCapFromPopulation(idx);
             }
 
+
             if (map.TryGetCell(spawnPos, out var baseCell))
-                baseCell.army += baseArmyBonus;
+                baseCell.army = Mathf.Min(baseArmyCap, baseCell.army + baseArmyBonus);
+
         }
     }
 
