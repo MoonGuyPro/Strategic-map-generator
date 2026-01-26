@@ -55,6 +55,16 @@ public class BotController : MonoBehaviour
     private Vector3Int spawnPos;
     private bool initialized;
 
+    // ------------------------------------------------------------
+    // Populacja pasywna co X tur
+    // ------------------------------------------------------------
+    [Header("Populacja - pasywny przyrost")]
+    public int populationIncomeIntervalTurns = 15;
+    [Range(0f, 1f)] public float populationIncomePercent = 0.10f;
+
+    private int turnCounter = 0;
+
+
     private GameObject spawnedBase;
     public Vector3Int SpawnPos => spawnPos;
 
@@ -101,12 +111,45 @@ public class BotController : MonoBehaviour
 
     void DoTurn()
     {
+        // tura bota
+        turnCounter++;
+
+        // co 15 tur dodaj populacjê zale¿n¹ od posiadanych pól
+        if (populationIncomeIntervalTurns > 0 && (turnCounter % populationIncomeIntervalTurns) == 0)
+            AddPopulationFromOwnedTiles();
+
         GainGoldForTurn();
         TryCreateNewUnitFromPopulation();
 
         for (int i = tokens.Count - 1; i >= 0; i--)
             DoUnitStep(i);
     }
+
+    void AddPopulationFromOwnedTiles()
+    {
+        if (map == null) return;
+
+        int sum = 0;
+
+        // map.DebugCells to Twoje "Ÿród³o prawdy" - uwzglêdnia te¿ utracone pola
+        foreach (var cell in map.DebugCells)
+        {
+            if (cell.ownerId != botOwnerId) continue;
+            if (!cell.passable || cell.isWater) continue;
+
+            sum += Mathf.Max(0, cell.populationNumber);
+        }
+
+        int gained = Mathf.FloorToInt(sum * populationIncomePercent);
+        if (gained <= 0) return;
+
+        population += gained;
+
+        // opcjonalnie debug
+        Debug.LogWarning($"Bot[{botOwnerId}] +{gained} pop (10% z sumy {sum}) co {populationIncomeIntervalTurns} tur. Pop={population}");
+    }
+
+
 
     void DoUnitStep(int unitIndex)
     {
