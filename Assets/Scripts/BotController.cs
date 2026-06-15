@@ -12,13 +12,13 @@ public class BotController : MonoBehaviour
     public int population;
     public int populationPerCapture = 10;
 
-    [Header("Rekrutacja oddzia³ów")]
+    [Header("Rekrutacja oddziaï¿½ï¿½w")]
     public int populationToCreateNewUnit = 600;
     public int newUnitArmySize = 500;
     public int baseArmyBonus = 100;
     public int maxArmyTokens = 5;
 
-    [Header("Z³oto")]
+    [Header("Zï¿½oto")]
     public int gold = 0;
     public int goldPerIntervalByBase = 70;
     public int goldGainedByMine = 30;
@@ -30,7 +30,7 @@ public class BotController : MonoBehaviour
 
     [Header("Limity armii")]
     public int baseArmyCap = 600;                 // limit armii na polu bazy
-    public int tokenArmyCapStart = 500;           // pocz¹tkowy limit armii w tokenie
+    public int tokenArmyCapStart = 500;           // poczï¿½tkowy limit armii w tokenie
     public int tokenArmyCapIncreasePerInterval = 100; // +100 co 15 tur
 
     [Header("Baza")]
@@ -46,7 +46,7 @@ public class BotController : MonoBehaviour
     public int spawnNumber = 1;
 
     [Header("AI")]
-    [Tooltip("Traktowane jako 'zasiêg ruchu' do wyszukiwania celu (promieñ w heksach). Token i tak robi 1 krok na turê.")]
+    [Tooltip("Traktowane jako 'zasiï¿½g ruchu' do wyszukiwania celu (promieï¿½ w heksach). Token i tak robi 1 krok na turï¿½.")]
     public int visionRadius = 1;
 
     [Header("AI - przeciwnik")]
@@ -82,13 +82,13 @@ public class BotController : MonoBehaviour
             yield break;
         }
 
-        // Czekamy a¿ generator mapy skoñczy (to jest sens IsGenerated)
+        // Czekamy aï¿½ generator mapy skoï¿½czy (to jest sens IsGenerated)
         while (!map.IsGenerated)
             yield return null;
 
         spawnPos = (spawnNumber == 2) ? map.spawnPosPlayer2 : map.spawnPosPlayer1;
 
-        // baza ma byæ nasza na start
+        // baza ma byï¿½ nasza na start
         map.SetOwnerAndTile(spawnPos, botOwnerId, botTile);
 
         tokenArmyCap = tokenArmyCapStart;
@@ -99,7 +99,7 @@ public class BotController : MonoBehaviour
 
         SpawnBase();
 
-        // token ma wystartowaæ w bazie
+        // token ma wystartowaï¿½ w bazie
         int tokenIndex = SpawnToken(spawnPos, initialArmySize: 300);
         if (tokenIndex >= 0)
         {
@@ -126,7 +126,7 @@ public class BotController : MonoBehaviour
         // tura bota
         turnCounter++;
 
-        // co X tur: +pop +zwiêksz limit tokenów +spróbuj dobiæ tokeny do nowego limitu (z populacji)
+        // co X tur: +pop +zwiï¿½ksz limit tokenï¿½w +sprï¿½buj dobiï¿½ tokeny do nowego limitu (z populacji)
         if (populationIncomeIntervalTurns > 0 && (turnCounter % populationIncomeIntervalTurns) == 0)
         {
             AddPopulationFromOwnedTiles();
@@ -148,7 +148,7 @@ public class BotController : MonoBehaviour
 
         int sum = 0;
 
-        // map.DebugCells to Twoje "Ÿród³o prawdy" - uwzglêdnia te¿ utracone pola
+        // map.DebugCells to Twoje "ï¿½rï¿½dï¿½o prawdy" - uwzglï¿½dnia teï¿½ utracone pola
         foreach (var cell in map.DebugCells)
         {
             if (cell.ownerId != botOwnerId) continue;
@@ -172,12 +172,12 @@ public class BotController : MonoBehaviour
         //ogranicz maksymalny cap np. do 2000:
         tokenArmyCap = Mathf.Min(tokenArmyCap, 1000);
 
-        Debug.LogWarning($"Bot[{botOwnerId}] tokenArmyCap zwiêkszony do {tokenArmyCap}");
+        Debug.LogWarning($"Bot[{botOwnerId}] tokenArmyCap zwiï¿½kszony do {tokenArmyCap}");
     }
 
     void RefillAllTokensUpToCapFromPopulation()
     {
-        // dobijamy istniej¹ce tokeny do nowego limitu (z populacji)
+        // dobijamy istniejï¿½ce tokeny do nowego limitu (z populacji)
         for (int i = 0; i < tokens.Count; i++)
             RefillTokenUpToCapFromPopulation(i);
     }
@@ -207,7 +207,7 @@ public class BotController : MonoBehaviour
         Vector3Int currentPos = tokenPositions[unitIndex];
         Vector3Int lastPos = tokenLastPositions[unitIndex];
 
-        // NOWA LOGIKA: priorytety 1–7 wybieraj¹ CEL, a my robimy 1 krok w jego stronê
+        // NOWA LOGIKA: priorytety 1ï¿½7 wybierajï¿½ CEL, a my robimy 1 krok w jego stronï¿½
         if (TryChooseStepByPriorities(unitIndex, currentPos, lastPos, out var step))
         {
             bool aliveAndMoved = TryEnterCell(unitIndex, step);
@@ -234,7 +234,7 @@ public class BotController : MonoBehaviour
     }
 
     // ============================================================
-    // PRIORYTETY 1–7
+    // PRIORYTETY 1ï¿½7
     // ============================================================
     bool TryChooseStepByPriorities(int unitIndex, Vector3Int currentPos, Vector3Int lastPos, out Vector3Int step)
     {
@@ -243,10 +243,10 @@ public class BotController : MonoBehaviour
 
         int attackerArmy = tokens[unitIndex].armySize;
 
-        // Zasiêg "ruchu" (wyszukiwania celu)
+        // Zasiï¿½g "ruchu" (wyszukiwania celu)
         List<Vector3Int> inRange = map.GetNeighbours(currentPos);
 
-        // 1) Kopalnie w zasiêgu -> idŸ na nie (preferuj bli¿sze)
+        // 1) Kopalnie w zasiï¿½gu -> idï¿½ na nie (preferuj bliï¿½sze)
         if (TryPickMineTarget(inRange, currentPos, attackerArmy, out var t1))
         {
             Debug.Log($"Bot: '{botOwnerId}' Cel: Kopalnia");
@@ -254,15 +254,15 @@ public class BotController : MonoBehaviour
         }
 
 
-        // 2) Neutral z najwiêksz¹ populacj¹ w zasiêgu -> idŸ na niego
+        // 2) Neutral z najwiï¿½kszï¿½ populacjï¿½ w zasiï¿½gu -> idï¿½ na niego
         if (TryPickNeutralMaxPopInRange(inRange, currentPos, out var t2))
         {
-            Debug.Log($"Bot: '{botOwnerId}' Cel: Pole neutralne w zasiêgu");
+            Debug.Log($"Bot: '{botOwnerId}' Cel: Pole neutralne w zasiï¿½gu");
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t2, out step);
         }
 
 
-        // 3) Neutral border (graniczy z moim terytorium) z najwiêksz¹ populacj¹ -> idŸ w jego kierunku
+        // 3) Neutral border (graniczy z moim terytorium) z najwiï¿½kszï¿½ populacjï¿½ -> idï¿½ w jego kierunku
         if (TryPickNeutralBorderMaxPop(currentPos, out var t3))
         {
             Debug.Log($"Bot: '{botOwnerId}' Cel: Neutral border");
@@ -270,35 +270,35 @@ public class BotController : MonoBehaviour
         }
 
 
-        // 4) Baza przeciwnika w zasiêgu -> zaatakuj, jeœli masz wiêksz¹ armiê ni¿ pole
+        // 4) Baza przeciwnika w zasiï¿½gu -> zaatakuj, jeï¿½li masz wiï¿½kszï¿½ armiï¿½ niï¿½ pole
         if (TryPickEnemyBaseInRange(currentPos, attackerArmy, out var t4))
         {
-            Debug.Log($"Bot: '{botOwnerId}' Cel: Baza przeciwnika w zasiêgu");
+            Debug.Log($"Bot: '{botOwnerId}' Cel: Baza przeciwnika w zasiï¿½gu");
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t4, out step);
         }
 
 
-        // 5) Token przeciwnika w zasiêgu -> zaatakuj, jeœli masz wiêksz¹ armiê
+        // 5) Token przeciwnika w zasiï¿½gu -> zaatakuj, jeï¿½li masz wiï¿½kszï¿½ armiï¿½
         if (TryPickEnemyTokenInRange(currentPos, attackerArmy, out var t5))
         {
-            Debug.Log($"Bot: '{botOwnerId}' Cel: Token przeciwnika w zasiêgu");
+            Debug.Log($"Bot: '{botOwnerId}' Cel: Token przeciwnika w zasiï¿½gu");
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t5, out step);
         }
 
 
-        // 6) Pole przeciwnika z najwiêksz¹ populacj¹ w zasiêgu -> zaatakuj (tu bez warunku "mam wiêksz¹", bo punkt nie mówi,
-        // ale ¯EBY NIE ROBIÆ SAMOBÓJSTW filtrujê tylko atakowalne)
+        // 6) Pole przeciwnika z najwiï¿½kszï¿½ populacjï¿½ w zasiï¿½gu -> zaatakuj (tu bez warunku "mam wiï¿½kszï¿½", bo punkt nie mï¿½wi,
+        // ale ï¿½EBY NIE ROBIï¿½ SAMOBï¿½JSTW filtrujï¿½ tylko atakowalne)
         if (TryPickEnemyMaxPopInRangeAttackable(inRange, currentPos, attackerArmy, out var t6))
         {
-            Debug.Log($"Bot: '{botOwnerId}' Cel: Atak na pole przeciwnika w zasiêgu");
+            Debug.Log($"Bot: '{botOwnerId}' Cel: Atak na pole przeciwnika w zasiï¿½gu");
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t6, out step);
         }
 
 
-        // 7) Pole przeciwnika border z najwiêksz¹ populacj¹ -> idŸ w jego kierunku
+        // 7) Pole przeciwnika border z najwiï¿½kszï¿½ populacjï¿½ -> idï¿½ w jego kierunku
         if (TryPickEnemyBorderMaxPop(currentPos, out var t7))
         {
-            Debug.Log($"Bot: '{botOwnerId}' Cel: Atak na pole przeciwnika border z najwiêksz¹ populacj¹");
+            Debug.Log($"Bot: '{botOwnerId}' Cel: Atak na pole przeciwnika border z najwiï¿½kszï¿½ populacjï¿½");
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t7, out step);
         }
 
@@ -323,10 +323,10 @@ public class BotController : MonoBehaviour
             if (!cell.passable) continue;
             if (!cell.hasMine) continue;
 
-            // interesuj¹ nas kopalnie nie-nasze (neutral lub wroga)
+            // interesujï¿½ nas kopalnie nie-nasze (neutral lub wroga)
             if (cell.ownerId == botOwnerId) continue;
 
-            // jeœli to pole wroga, musi byæ "do wygrania" (¿eby AI nie robi³o samobójstw)
+            // jeï¿½li to pole wroga, musi byï¿½ "do wygrania" (ï¿½eby AI nie robiï¿½o samobï¿½jstw)
             if (cell.ownerId != 0)
             {
                 int def = Mathf.Max(0, cell.army);
@@ -337,7 +337,7 @@ public class BotController : MonoBehaviour
             int dist = HexDist(currentPos, p);
             int pop = cell.populationNumber;
 
-            // preferuj bli¿sze, a przy remisie wiêksza populacja
+            // preferuj bliï¿½sze, a przy remisie wiï¿½ksza populacja
             if (!found || dist < bestDist || (dist == bestDist && pop > bestPop))
             {
                 found = true;
@@ -369,7 +369,7 @@ public class BotController : MonoBehaviour
             int pop = cell.populationNumber;
             int dist = HexDist(currentPos, p);
 
-            // g³ównie max populacja, a przy remisie bli¿ej
+            // gï¿½ï¿½wnie max populacja, a przy remisie bliï¿½ej
             if (!found || pop > bestPop || (pop == bestPop && dist < bestDist))
             {
                 found = true;
@@ -427,7 +427,7 @@ public class BotController : MonoBehaviour
 
         if (!map.TryGetCell(enemyBase, out var cell)) return false;
         if (!cell.passable) return false;
-        if (cell.ownerId == botOwnerId) return false; // ju¿ nasze
+        if (cell.ownerId == botOwnerId) return false; // juï¿½ nasze
 
         int defender = Mathf.Max(0, cell.army);
         if (attackerArmy <= defender) return false;
@@ -454,11 +454,10 @@ public class BotController : MonoBehaviour
 
             ArmyToken tok = enemyBot.GetToken(i);
             if (tok == null) continue;
+            
+            if (attackerArmy < tok.armySize) continue;
 
-            // atak tylko jeœli jesteœmy wiêksi
-            if (attackerArmy <= tok.armySize) continue;
-
-            // preferuj bli¿sze; przy remisie atakuj najwiêkszy token który i tak wygrasz (¿eby nie marnowaæ tury)
+            // preferuj bliï¿½sze; przy remisie atakuj najwiï¿½kszy token ktï¿½ry i tak wygrasz (ï¿½eby nie marnowaï¿½ tury)
             if (!found || dist < bestDist || (dist == bestDist && tok.armySize > bestEnemyArmy))
             {
                 found = true;
@@ -489,7 +488,7 @@ public class BotController : MonoBehaviour
             if (cell.ownerId == 0) continue;              // nie neutral
             if (cell.ownerId == botOwnerId) continue;     // nie nasze
 
-            // nie samobójcze: musi byæ do wygrania albo puste
+            // nie samobï¿½jcze: musi byï¿½ do wygrania albo puste
             int def = Mathf.Max(0, cell.army);
             if (!(def <= 0 || attackerArmy > def))
                 continue;
@@ -497,7 +496,7 @@ public class BotController : MonoBehaviour
             int pop = cell.populationNumber;
             int dist = HexDist(currentPos, p);
 
-            // max populacja, a przy remisie bli¿ej
+            // max populacja, a przy remisie bliï¿½ej
             if (!found || pop > bestPop || (pop == bestPop && dist < bestDist))
             {
                 found = true;
@@ -544,7 +543,7 @@ public class BotController : MonoBehaviour
     }
 
     // ------------------------------------------------------------
-    // KROK w stronê targetu + unikanie cofki + unikanie wejœcia na nie-do-wygrania enemy tile
+    // KROK w stronï¿½ targetu + unikanie cofki + unikanie wejï¿½cia na nie-do-wygrania enemy tile
     // ------------------------------------------------------------
     bool TryStepTowardsTarget(Vector3Int currentPos, Vector3Int lastPos, int attackerArmy, Vector3Int target, out Vector3Int step)
     {
@@ -554,11 +553,11 @@ public class BotController : MonoBehaviour
         if (!map.TryGetNextStep(currentPos, target, out var nextStep))
             return false;
 
-        // jeœli wybrany krok to cofka, spróbuj alternatywy bli¿ej celu
+        // jeï¿½li wybrany krok to cofka, sprï¿½buj alternatywy bliï¿½ej celu
         if (nextStep == lastPos)
             nextStep = PickBestNeighbourTowardsTarget(currentPos, lastPos, target);
 
-        // jeœli krok prowadzi na pole wroga nie-do-wygrania, spróbuj alternatywy
+        // jeï¿½li krok prowadzi na pole wroga nie-do-wygrania, sprï¿½buj alternatywy
         if (!IsStepSafeForTileBattle(nextStep, attackerArmy))
         {
             var alt = PickBestNeighbourTowardsTarget(currentPos, lastPos, target, requireSafeEnemyStep: true, attackerArmy: attackerArmy);
@@ -576,16 +575,23 @@ public class BotController : MonoBehaviour
     bool IsStepSafeForTileBattle(Vector3Int pos, int attackerArmy)
     {
         if (!map.TryGetCell(pos, out var cell)) return true;
-
         if (!cell.passable) return false;
 
-        // jeœli to wrogie pole, upewnij siê ¿e da siê je wygraæ (¿eby AI nie traci³o tokenów bez sensu)
         if (cell.ownerId != 0 && cell.ownerId != botOwnerId)
         {
-            int def = Mathf.Max(0, cell.army);
-            return (def <= 0 || attackerArmy > def);
-        }
+            int totalDefense = Mathf.Max(0, cell.army);
+            
+            if (enemyBot != null)
+            {
+                int enemyTokenIdx = enemyBot.FindTokenIndexAt(pos);
+                if (enemyTokenIdx != -1)
+                {
+                    totalDefense += enemyBot.GetToken(enemyTokenIdx).armySize;
+                }
+            }
 
+            return (totalDefense <= 0 || attackerArmy > totalDefense);
+        }
         return true;
     }
 
@@ -623,7 +629,7 @@ public class BotController : MonoBehaviour
     }
 
     // ------------------------------------------------------------
-    // Border cells: pola granicz¹ce z moim terytorium
+    // Border cells: pola graniczï¿½ce z moim terytorium
     // ownerIdFilter:
     // 0  -> neutralne
     // -1 -> wrogie (owner != 0 i != botOwnerId)
@@ -661,11 +667,11 @@ public class BotController : MonoBehaviour
     // ------------------------------------------------------------
     Vector3Int GetSpawnCellForNewToken()
     {
-        // 1) Baza jeœli wolna
+        // 1) Baza jeï¿½li wolna
         if (FindTokenIndexAt(spawnPos) == -1)
             return spawnPos;
 
-        // 2) Jeœli baza zajêta, szukamy wolnego s¹siada (pierwszy wolny)
+        // 2) Jeï¿½li baza zajï¿½ta, szukamy wolnego sï¿½siada (pierwszy wolny)
         var neighbours = map.GetNeighbours(spawnPos);
         foreach (var n in neighbours)
         {
@@ -680,10 +686,10 @@ public class BotController : MonoBehaviour
 
     void TryCreateNewUnitFromPopulation()
     {
-        // jeœli baza przejêta - nie tworzymy
+        // jeï¿½li baza przejï¿½ta - nie tworzymy
         if (map.GetOwnerId(spawnPos) != botOwnerId) return;
 
-        // tworzymy tyle tokenów ile siê da: zasoby + limit
+        // tworzymy tyle tokenï¿½w ile siï¿½ da: zasoby + limit
         while (tokens.Count < maxArmyTokens && population >= populationToCreateNewUnit)
         {
             population -= populationToCreateNewUnit;
@@ -696,7 +702,7 @@ public class BotController : MonoBehaviour
                 tokenPositions[idx] = spawnCell;
                 tokenLastPositions[idx] = spawnCell;
 
-                // nowy oddzia³ ma d¹¿yæ do tokenArmyCap, ale tylko jeœli populacja pozwala
+                // nowy oddziaï¿½ ma dï¿½ï¿½yï¿½ do tokenArmyCap, ale tylko jeï¿½li populacja pozwala
                 RefillTokenUpToCapFromPopulation(idx);
             }
 
@@ -715,7 +721,7 @@ public class BotController : MonoBehaviour
     {
         if (armyTokenPrefab == null || armySprite == null)
         {
-            Debug.LogWarning("BotController: brak armyTokenPrefab lub armySprite - pionek nie bêdzie widoczny.");
+            Debug.LogWarning("BotController: brak armyTokenPrefab lub armySprite - pionek nie bï¿½dzie widoczny.");
             return -1;
         }
 
@@ -755,7 +761,7 @@ public class BotController : MonoBehaviour
     public void KillTokenPublic(int tokenIndex) => KillToken(tokenIndex);
 
     // ------------------------------------------------------------
-    // Token vs Token – zostawiasz jak masz (Twoja wersja)
+    // Token vs Token ï¿½ zostawiasz jak masz (Twoja wersja)
     // ------------------------------------------------------------
     public void ResolveCollisionsWith(BotController other)
     {
@@ -821,7 +827,7 @@ public class BotController : MonoBehaviour
         }
     }
 
-    // przejêcie pola po walce token vs token
+    // przejï¿½cie pola po walce token vs token
     public void ClaimTileAfterTokenBattle(Vector3Int pos)
     {
         if (!map.TryGetCell(pos, out var cell)) return;
@@ -836,7 +842,7 @@ public class BotController : MonoBehaviour
     }
 
     // ------------------------------------------------------------
-    // WEJŒCIE NA POLE
+    // WEJï¿½CIE NA POLE
     // ------------------------------------------------------------
     bool TryEnterCell(int unitIndex, Vector3Int targetPos)
     {
@@ -1015,7 +1021,7 @@ public class BotController : MonoBehaviour
             }
         }
 
-        return int.MaxValue; // poza zasiêgiem
+        return int.MaxValue; // poza zasiï¿½giem
     }
 
     void SpawnBase()
