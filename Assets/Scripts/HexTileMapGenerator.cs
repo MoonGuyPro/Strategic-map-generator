@@ -35,7 +35,7 @@ public class HexMapGenerator : MonoBehaviour
     // Stan gry
     private Dictionary<Vector3Int, HexCell> cells = new Dictionary<Vector3Int, HexCell>();
 
-    // Dla podgl¹du w Inspectorze
+    // Dla podglï¿½du w Inspectorze
     public Vector3Int spawnPosPlayer1;
     public Vector3Int spawnPosPlayer2;
 
@@ -52,7 +52,7 @@ public class HexMapGenerator : MonoBehaviour
         }
         if (grassTile == null || waterTile == null || spawnTile == null || mineTile == null)
         {
-            Debug.LogError("HexMapGenerator: nie wszystkie TileBase s¹ przypisane (grass/water/spawn/mine)!");
+            Debug.LogError("HexMapGenerator: nie wszystkie TileBase sï¿½ przypisane (grass/water/spawn/mine)!");
             return;
         }
 
@@ -103,7 +103,7 @@ public class HexMapGenerator : MonoBehaviour
     // ------------------------------------------------------------
     void GeneratePlayerSpawns()
     {
-        // Kandydaci na spawny – tylko l¹d i przechodnie pola + musi mieæ 6 przechodnich s¹siadów
+        // Kandydaci na spawny ï¿½ tylko lï¿½d i przechodnie pola + musi mieï¿½ 6 przechodnich sï¿½siadï¿½w
         List<HexCell> candidates = new List<HexCell>();
         foreach (var kvp in cells)
         {
@@ -116,14 +116,14 @@ public class HexMapGenerator : MonoBehaviour
 
         if (candidates.Count < 2)
         {
-            Debug.LogError("Za ma³o poprawnych pól (z 6 przechodnimi s¹siadami), ¿eby wygenerowaæ 2 spawny.");
+            Debug.LogError("Za maï¿½o poprawnych pï¿½l (z 6 przechodnimi sï¿½siadami), ï¿½eby wygenerowaï¿½ 2 spawny.");
             return;
         }
 
-        // 1) Losujemy spawn1 z dobrych kandydatów
+        // 1) Losujemy spawn1 z dobrych kandydatï¿½w
         HexCell spawn1 = candidates[Random.Range(0, candidates.Count)];
 
-        // 2) Szukamy spawn2: spe³nia minSpawnDistance, a jeœli siê nie da to bierzemy najdalszy
+        // 2) Szukamy spawn2: speï¿½nia minSpawnDistance, a jeï¿½li siï¿½ nie da to bierzemy najdalszy
         List<HexCell> farEnough = new List<HexCell>();
         int maxDist = -1;
         HexCell farthest = null;
@@ -170,10 +170,10 @@ public class HexMapGenerator : MonoBehaviour
     // ------------------------------------------------------------
     void GenerateMines()
     {
-        // pola zakazane dla kopalni: spawn + s¹siedzi spawnów
+        // pola zakazane dla kopalni: spawn + sï¿½siedzi spawnï¿½w
         HashSet<Vector3Int> forbidden = BuildForbiddenMineCells();
 
-        // kandydaci: l¹d, przechodnie, nie-spawn, bez kopalni, nie w forbidden
+        // kandydaci: lï¿½d, przechodnie, nie-spawn, bez kopalni, nie w forbidden
         List<HexCell> candidates = new List<HexCell>();
         foreach (var kvp in cells)
         {
@@ -189,7 +189,7 @@ public class HexMapGenerator : MonoBehaviour
 
         if (candidates.Count == 0) return;
 
-        // ¿eby by³o stabilniej: losowo tasujemy i idziemy po kolei
+        // ï¿½eby byï¿½o stabilniej: losowo tasujemy i idziemy po kolei
         Shuffle(candidates);
 
         int placed = 0;
@@ -198,7 +198,7 @@ public class HexMapGenerator : MonoBehaviour
         {
             HexCell cell = candidates[i];
 
-            // warunek: ¿aden s¹siad nie ma kopalni
+            // warunek: ï¿½aden sï¿½siad nie ma kopalni
             if (!CanPlaceMineHere(cell.coord))
                 continue;
 
@@ -208,7 +208,7 @@ public class HexMapGenerator : MonoBehaviour
         }
 
         if (placed < mineCount)
-            Debug.LogWarning($"Nie uda³o siê postawiæ wszystkich kopalni. Postawiono {placed}/{mineCount} (za ma³o miejsca przez ograniczenia).");
+            Debug.LogWarning($"Nie udaï¿½o siï¿½ postawiï¿½ wszystkich kopalni. Postawiono {placed}/{mineCount} (za maï¿½o miejsca przez ograniczenia).");
     }
 
 
@@ -260,6 +260,11 @@ public class HexMapGenerator : MonoBehaviour
     {
         if (cells.TryGetValue(coord, out HexCell cell))
         {
+            if (cell.ownerId != 0 && cell.ownerId != newOwnerId)
+            {
+                GameMetricsCollector.RegisterReconquer();
+            }
+
             cell.ownerId = newOwnerId;
             tilemap.SetTile(coord, tile);
         }
@@ -345,13 +350,13 @@ public class HexMapGenerator : MonoBehaviour
 
     bool IsGoodSpawnCell(Vector3Int pos)
     {
-        // musi byæ l¹dem i przechodnie (dla pewnoœci)
+        // musi byï¿½ lï¿½dem i przechodnie (dla pewnoï¿½ci)
         if (!cells.TryGetValue(pos, out var c)) return false;
         if (!c.passable || c.isWater) return false;
 
-        // wszystkie 6 s¹siadów musi istnieæ i byæ przechodnim l¹dem
+        // wszystkie 6 sï¿½siadï¿½w musi istnieï¿½ i byï¿½ przechodnim lï¿½dem
         var neigh = GetNeighbours(pos);
-        if (neigh.Count < 6) return false; // krawêdŸ mapy odpada
+        if (neigh.Count < 6) return false; // krawï¿½dï¿½ mapy odpada
 
         foreach (var n in neigh)
         {
@@ -366,7 +371,7 @@ public class HexMapGenerator : MonoBehaviour
     {
         var forbidden = new HashSet<Vector3Int>();
 
-        // spawn + s¹siedzi spawnów
+        // spawn + sï¿½siedzi spawnï¿½w
         void AddSpawnBlock(Vector3Int spawn)
         {
             forbidden.Add(spawn);
@@ -382,11 +387,11 @@ public class HexMapGenerator : MonoBehaviour
 
     bool CanPlaceMineHere(Vector3Int pos)
     {
-        // pole musi istnieæ i byæ sensowne
+        // pole musi istnieï¿½ i byï¿½ sensowne
         if (!cells.TryGetValue(pos, out var c)) return false;
         if (!c.passable || c.isWater || c.isSpawn || c.hasMine) return false;
 
-        // s¹siedzi kopalni nie mog¹ byæ kopalni¹
+        // sï¿½siedzi kopalni nie mogï¿½ byï¿½ kopalniï¿½
         foreach (var n in GetNeighbours(pos))
         {
             if (cells.TryGetValue(n, out var nc) && nc.hasMine)

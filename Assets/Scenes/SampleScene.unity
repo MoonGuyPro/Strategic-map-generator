@@ -148,11 +148,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6a73e0c9f7cd64e4a8887a05a2ea2d11, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BotTurnManager
+  executionMode: 0
+  batchSimulationCount: 10
+  maxTurnsCap: 500
   botA: {fileID: 1851286722}
   botB: {fileID: 873840219}
+  mapGenerator: {fileID: 225472700}
   turnInterval: 0.1
   randomizeFirstBot: 1
-  freezeTimeOnGameOver: 1
 --- !u!4 &219447687
 Transform:
   m_ObjectHideFlags: 0
@@ -686,6 +689,9 @@ MonoBehaviour:
   ownedMineCount: 0
   armyTokenPrefab: {fileID: 9127385153527895614, guid: 68e25fa859edc3e4a9f15dfed67aa23c, type: 3}
   armySprite: {fileID: 21300170, guid: 14aefffd3622c7347aad64f2bed35801, type: 3}
+  baseArmyCap: 600
+  tokenArmyCapStart: 500
+  tokenArmyCapIncreasePerInterval: 100
   basePrefab: {fileID: 2884706003710122822, guid: f458ed32143604a40bb5f3b91340cb6d, type: 3}
   winLossMin: 0.8
   winLossMax: 1.2
@@ -693,6 +699,8 @@ MonoBehaviour:
   spawnNumber: 1
   visionRadius: 2
   enemyBot: {fileID: 1851286722}
+  populationIncomeIntervalTurns: 15
+  populationIncomePercent: 0.1
 --- !u!4 &873840220
 Transform:
   m_ObjectHideFlags: 0
@@ -751,6 +759,9 @@ MonoBehaviour:
   ownedMineCount: 0
   armyTokenPrefab: {fileID: 9127385153527895614, guid: 68e25fa859edc3e4a9f15dfed67aa23c, type: 3}
   armySprite: {fileID: 21300172, guid: 14aefffd3622c7347aad64f2bed35801, type: 3}
+  baseArmyCap: 600
+  tokenArmyCapStart: 500
+  tokenArmyCapIncreasePerInterval: 100
   basePrefab: {fileID: 2884706003710122822, guid: f458ed32143604a40bb5f3b91340cb6d, type: 3}
   winLossMin: 0.8
   winLossMax: 1.2
@@ -758,6 +769,8 @@ MonoBehaviour:
   spawnNumber: 2
   visionRadius: 2
   enemyBot: {fileID: 873840219}
+  populationIncomeIntervalTurns: 15
+  populationIncomePercent: 0.1
 --- !u!4 &1851286723
 Transform:
   m_ObjectHideFlags: 0

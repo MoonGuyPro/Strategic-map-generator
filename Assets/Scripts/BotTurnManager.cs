@@ -1,54 +1,86 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class BotTurnManager : MonoBehaviour
 {
+    public enum GameExecutionMode { RealTime, FastSimulationBatch }
+
+    [Header("Tryb wykonywania rozgrywek")]
+    public GameExecutionMode executionMode = GameExecutionMode.RealTime;
+    
+    [Tooltip("Ile roznych gier (i nowych map) symulowac w trybie masowym?")]
+    public int batchSimulationCount = 10;
+    public int maxTurnsCap = 300; // Zabezpieczenie przed nieskoÅ„czonÄ… grÄ…
+
     [Header("Boty (przypisz w Inspectorze)")]
     public BotController botA;
     public BotController botB;
+    public HexMapGenerator mapGenerator;
 
-    [Header("Czas")]
-    public float turnInterval = 1.5f;
+    [Header("Czas (Dla RealTime)")]
+    public float turnInterval = 0.5f;
 
-    [Header("Kolejnoœæ startowa")]
+    [Header("Kolejnosc startowa")]
     public bool randomizeFirstBot = true;
-
-    [Header("Game Over")]
-    public bool freezeTimeOnGameOver = true;
 
     private float timer;
     private bool initialized;
     private bool isATurn;
     private bool gameOver;
+    private int currentGlobalTurnCount = 0;
+    private int currentBatchIndex = 0;
 
     private System.Collections.IEnumerator Start()
     {
-        if (botA == null || botB == null)
+        if (botA == null || botB == null || mapGenerator == null)
         {
-            Debug.LogError("BotTurnManager: przypisz botA i botB!");
+            Debug.LogError("BotTurnManager: przypisz botA, botB oraz mapGenerator!");
             yield break;
         }
 
-        // podpinamy wrogów (¿eby BotController mia³ referencje)
         botA.enemyBot = botB;
         botB.enemyBot = botA;
 
-        // poczekaj a¿ boty i mapa siê zainicjalizuj¹
-        yield return null;
+        // Czekamy, aÅ¼ generator mapy skoÅ„czy generowanie pierwszej mapy
+        while (!mapGenerator.IsGenerated)
+            yield return null;
 
+        if (executionMode == GameExecutionMode.RealTime)
+        {
+            StartSingleRealTimeGame();
+        }
+        else
+        {
+            // Odpalamy masowÄ… symulacjÄ™ wsadowÄ…
+            StartCoroutine(ExecuteBatchSimulations());
+        }
+    }
+
+    void StartSingleRealTimeGame()
+    {
+        currentGlobalTurnCount = 0;
+        gameOver = false;
+        GameMetricsCollector.Reset(mapGenerator);
         isATurn = randomizeFirstBot ? (Random.Range(0, 2) == 0) : true;
-
         timer = turnInterval;
         initialized = true;
     }
 
     void Update()
     {
-        if (!initialized || gameOver) return;
+        // Klasyczna logika czasu rzeczywistego (tylko w trybie RealTime)
+        if (executionMode != GameExecutionMode.RealTime || !initialized || gameOver) return;
 
         timer -= Time.deltaTime;
         if (timer > 0f) return;
 
         timer = turnInterval;
+        ExecuteSingleBotTurn();
+    }
+
+    void ExecuteSingleBotTurn()
+    {
+        currentGlobalTurnCount++;
 
         if (isATurn)
         {
@@ -61,50 +93,89 @@ public class BotTurnManager : MonoBehaviour
             botB.ResolveCollisionsWith(botA);
         }
 
-        // po akcji sprawdŸ bazê
-        if (CheckGameOver())
+        // Zbieramy metryki na koniec kaÅ¼dej tury bota
+        GameMetricsCollector.RecordTurnMetrics(botA, botB, mapGenerator);
+
+        if (CheckGameOver() || currentGlobalTurnCount >= maxTurnsCap)
+        {
+            HandleGameEnd();
             return;
+        }
 
         isATurn = !isATurn;
     }
 
     bool CheckGameOver()
     {
-        // bezpieczeñstwo
-        if (botA.map == null || botB.map == null) return false;
+        int ownerA = mapGenerator.GetOwnerId(botA.SpawnPos);
+        int ownerB = mapGenerator.GetOwnerId(botB.SpawnPos);
 
-        int ownerA = botA.map.GetOwnerId(botA.SpawnPos);
-        int ownerB = botB.map.GetOwnerId(botB.SpawnPos);
-
-        if (ownerA != botA.botOwnerId)
-        {
-            EndGame(winner: botB, loser: botA);
-            return true;
-        }
-
-        if (ownerB != botB.botOwnerId)
-        {
-            EndGame(winner: botA, loser: botB);
-            return true;
-        }
-
+        if (ownerA != botA.botOwnerId) return true; // Bot B przejÄ…Å‚ bazÄ™ A
+        if (ownerB != botB.botOwnerId) return true; // Bot A przejÄ…Å‚ bazÄ™ B
         return false;
     }
 
-    void EndGame(BotController winner, BotController loser)
+    int GetWinnerId()
+    {
+        int ownerA = mapGenerator.GetOwnerId(botA.SpawnPos);
+        if (ownerA != botA.botOwnerId) return botB.botOwnerId;
+        return botA.botOwnerId;
+    }
+
+    void HandleGameEnd()
     {
         gameOver = true;
+        int winnerId = GetWinnerId();
+        
+        // Zapis do pliku tekstowego za pomocÄ… kolektora
+        GameMetricsCollector.SaveGameReport(currentGlobalTurnCount, maxTurnsCap, botA, botB, winnerId);
 
-        Debug.Log($"GAME OVER! Winner BotOwnerId={winner.botOwnerId} | Loser BotOwnerId={loser.botOwnerId}");
+        if (executionMode == GameExecutionMode.RealTime)
+        {
+            botA.enabled = false;
+            botB.enabled = false;
+            this.enabled = false;
+            Debug.Log("Gra RealTime zakonczona, raport zapisany.");
+        }
+    }
 
-        // wy³¹cz sterowanie
-        winner.enabled = false;
-        loser.enabled = false;
-        enabled = false;
+    // PÄ™tla dla szybkiej generacji masowej (FastSimulationBatch)
+    System.Collections.IEnumerator ExecuteBatchSimulations()
+    {
+        Debug.LogWarning($"URUCHOMIONO TRYB MASOWEJ SYMULACJI: {batchSimulationCount} ROZGRYWEK.");
 
-        if (freezeTimeOnGameOver)
-            Time.timeScale = 0f;
+        for (currentBatchIndex = 1; currentBatchIndex <= batchSimulationCount; currentBatchIndex++)
+        {
+            // 1. Reset i generowanie nowej losowej mapy
+            mapGenerator.SendMessage("Start"); // Wymuszamy ponowne Start() na generatorze mapy
+            yield return null; // Czekamy klatkÄ™ na wygenerowanie struktur lÄ…du i kopalÅ„
+            
+            while (!mapGenerator.IsGenerated) yield return null;
 
+            // 2. Reset botÃ³w do stanu poczÄ…tkowego
+            botA.SendMessage("Start");
+            botB.SendMessage("Start");
+            yield return null;
+
+            currentGlobalTurnCount = 0;
+            gameOver = false;
+            GameMetricsCollector.Reset(mapGenerator);
+            isATurn = randomizeFirstBot ? (Random.Range(0, 2) == 0) : true;
+
+            // 3. PÄ™tla wykonujÄ…ca grÄ™ bez czekania na czas rzeczywisty (Headless Loop)
+            while (!gameOver && currentGlobalTurnCount < maxTurnsCap)
+            {
+                ExecuteSingleBotTurn();
+            }
+
+            Debug.Log($"Ukonczono symulacje meczu nr: {currentBatchIndex} / {batchSimulationCount}");
+        }
+
+        Debug.LogError("=== WSZYSTKIE SYMULACJE ZAKONCZONE! Pliki TXT sa gotowe w folderze projektu. ===");
+        #if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+        #else
         Application.Quit();
+        #endif
     }
 }

@@ -121,12 +121,27 @@ public class BotController : MonoBehaviour
         DoTurn();
     }
 
+    public int[] PriorityCounters { get; private set; } = new int[8];
+
+    public string GetPriorityName(int index)
+    {
+        switch (index)
+        {
+            case 1: return "1) Kopalnia w zasiegu";
+            case 2: return "2) Neutralne pole o najwiekszej populacji w zasiegu";
+            case 3: return "3) Neutralne pole graniczne";
+            case 4: return "4) Baza przeciwnika w zasiegu";
+            case 5: return "5) Oddzial przeciwnika w zasiegu";
+            case 6: return "6) Wrogie pole o najwiekszej populacji w zasiegu";
+            case 7: return "7) Wrogie pole graniczne";
+            default: return "0) Ruch losowy (Fallback)";
+        }
+    }
+
     void DoTurn()
     {
-        // tura bota
         turnCounter++;
 
-        // co X tur: +pop +zwi�ksz limit token�w +spr�buj dobi� tokeny do nowego limitu (z populacji)
         if (populationIncomeIntervalTurns > 0 && (turnCounter % populationIncomeIntervalTurns) == 0)
         {
             AddPopulationFromOwnedTiles();
@@ -134,12 +149,17 @@ public class BotController : MonoBehaviour
             RefillAllTokensUpToCapFromPopulation();
         }
 
-
         GainGoldForTurn();
         TryCreateNewUnitFromPopulation();
 
+        // POPRAWKA BUGU: Bezpieczna pętla od tyłu z podwójną weryfikacją indeksu
         for (int i = tokens.Count - 1; i >= 0; i--)
-            DoUnitStep(i);
+        {
+            if (i < tokens.Count)
+            {
+                DoUnitStep(i);
+            }
+        }
     }
 
     void AddPopulationFromOwnedTiles()
@@ -242,69 +262,54 @@ public class BotController : MonoBehaviour
         if (unitIndex < 0 || unitIndex >= tokens.Count) return false;
 
         int attackerArmy = tokens[unitIndex].armySize;
-
-        // Zasi�g "ruchu" (wyszukiwania celu)
         List<Vector3Int> inRange = map.GetNeighbours(currentPos);
 
-        // 1) Kopalnie w zasi�gu -> id� na nie (preferuj bli�sze)
         if (TryPickMineTarget(inRange, currentPos, attackerArmy, out var t1))
         {
-            Debug.Log($"Bot: '{botOwnerId}' Cel: Kopalnia");
+            PriorityCounters[1]++; // Zliczanie
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t1, out step);
         }
 
-
-        // 2) Neutral z najwi�ksz� populacj� w zasi�gu -> id� na niego
         if (TryPickNeutralMaxPopInRange(inRange, currentPos, out var t2))
         {
-            Debug.Log($"Bot: '{botOwnerId}' Cel: Pole neutralne w zasi�gu");
+            PriorityCounters[2]++;
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t2, out step);
         }
 
-
-        // 3) Neutral border (graniczy z moim terytorium) z najwi�ksz� populacj� -> id� w jego kierunku
         if (TryPickNeutralBorderMaxPop(currentPos, out var t3))
         {
-            Debug.Log($"Bot: '{botOwnerId}' Cel: Neutral border");
+            PriorityCounters[3]++;
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t3, out step);
         }
 
-
-        // 4) Baza przeciwnika w zasi�gu -> zaatakuj, je�li masz wi�ksz� armi� ni� pole
         if (TryPickEnemyBaseInRange(currentPos, attackerArmy, out var t4))
         {
-            Debug.Log($"Bot: '{botOwnerId}' Cel: Baza przeciwnika w zasi�gu");
+            PriorityCounters[4]++;
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t4, out step);
         }
 
-
-        // 5) Token przeciwnika w zasi�gu -> zaatakuj, je�li masz wi�ksz� armi�
         if (TryPickEnemyTokenInRange(currentPos, attackerArmy, out var t5))
         {
-            Debug.Log($"Bot: '{botOwnerId}' Cel: Token przeciwnika w zasi�gu");
+            PriorityCounters[5]++;
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t5, out step);
         }
 
-
-        // 6) Pole przeciwnika z najwi�ksz� populacj� w zasi�gu -> zaatakuj (tu bez warunku "mam wi�ksz�", bo punkt nie m�wi,
-        // ale �EBY NIE ROBI� SAMOB�JSTW filtruj� tylko atakowalne)
         if (TryPickEnemyMaxPopInRangeAttackable(inRange, currentPos, attackerArmy, out var t6))
         {
-            Debug.Log($"Bot: '{botOwnerId}' Cel: Atak na pole przeciwnika w zasi�gu");
+            PriorityCounters[6]++;
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t6, out step);
         }
 
-
-        // 7) Pole przeciwnika border z najwi�ksz� populacj� -> id� w jego kierunku
         if (TryPickEnemyBorderMaxPop(currentPos, out var t7))
         {
-            Debug.Log($"Bot: '{botOwnerId}' Cel: Atak na pole przeciwnika border z najwi�ksz� populacj�");
+            PriorityCounters[7]++;
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t7, out step);
         }
 
-
+        PriorityCounters[0]++; // Jeśli żaden priorytet nie wszedł, podbijamy licznik ruchu losowego
         return false;
     }
+    
 
     // ---------- Priorytet 1 ----------
     bool TryPickMineTarget(List<Vector3Int> inRange, Vector3Int currentPos, int attackerArmy, out Vector3Int target)
