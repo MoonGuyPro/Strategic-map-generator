@@ -13,7 +13,7 @@ public class BotController : MonoBehaviour
     public int populationPerCapture = 10;
 
     [Header("Rekrutacja oddzia��w")]
-    public int populationToCreateNewUnit = 600;
+    public int populationToCreateNewUnit = 700;
     public int newUnitArmySize = 500;
     public int baseArmyBonus = 100;
     public int maxArmyTokens = 5;
@@ -32,6 +32,7 @@ public class BotController : MonoBehaviour
     public int baseArmyCap = 600;                 // limit armii na polu bazy
     public int tokenArmyCapStart = 500;           // pocz�tkowy limit armii w tokenie
     public int tokenArmyCapIncreasePerInterval = 100; // +100 co 15 tur
+    public int baseStartingArmy = 600;
 
     [Header("Baza")]
     public GameObject basePrefab;   
@@ -56,6 +57,9 @@ public class BotController : MonoBehaviour
     private readonly List<ArmyToken> tokens = new();
     private readonly List<Vector3Int> tokenPositions = new();
     private readonly List<Vector3Int> tokenLastPositions = new();
+    private readonly List<bool> tokenNeedsCapUpgrade = new();
+    private readonly HashSet<Vector3Int> reservedDestinations = new();
+    private int virtualReservedPopulation = 0;
 
     private Vector3Int spawnPos;
     private bool initialized;
@@ -92,9 +96,9 @@ public class BotController : MonoBehaviour
         map.SetOwnerAndTile(spawnPos, botOwnerId, botTile);
 
         tokenArmyCap = tokenArmyCapStart;
-
+        
         if (map.TryGetCell(spawnPos, out var baseCell))
-            baseCell.army = Mathf.Clamp(baseCell.army, 0, baseArmyCap);
+            baseCell.army = baseStartingArmy;
 
 
         SpawnBase();
@@ -121,7 +125,7 @@ public class BotController : MonoBehaviour
         DoTurn();
     }
 
-    public int[] PriorityCounters { get; private set; } = new int[8];
+    public int[] PriorityCounters { get; private set; } = new int[10];
 
     public string GetPriorityName(int index)
     {
@@ -134,6 +138,8 @@ public class BotController : MonoBehaviour
             case 5: return "5) Oddzial przeciwnika w zasiegu";
             case 6: return "6) Wrogie pole o najwiekszej populacji w zasiegu";
             case 7: return "7) Wrogie pole graniczne";
+            case 8: return "CRIT) Odwrot do bazy (<50% wojska)"; 
+            case 9: return "9) Nieaktywne (Usuniete)";
             default: return "0) Ruch losowy (Fallback)";
         }
     }
@@ -146,13 +152,17 @@ public class BotController : MonoBehaviour
         {
             AddPopulationFromOwnedTiles();
             IncreaseTokenArmyCap();
-            RefillAllTokensUpToCapFromPopulation();
+            for (int i = 0; i < tokenNeedsCapUpgrade.Count; i++)
+            {
+                tokenNeedsCapUpgrade[i] = true;
+            }
         }
+        reservedDestinations.Clear();
+        virtualReservedPopulation = 0;
 
-        GainGoldForTurn();
+        //GainGoldForTurn();
         TryCreateNewUnitFromPopulation();
-
-        // POPRAWKA BUGU: Bezpieczna pętla od tyłu z podwójną weryfikacją indeksu
+        
         for (int i = tokens.Count - 1; i >= 0; i--)
         {
             if (i < tokens.Count)
@@ -226,6 +236,12 @@ public class BotController : MonoBehaviour
 
         Vector3Int currentPos = tokenPositions[unitIndex];
         Vector3Int lastPos = tokenLastPositions[unitIndex];
+        
+        if (currentPos == spawnPos)
+        {
+            RefillTokenUpToCapFromPopulation(unitIndex);
+            tokenNeedsCapUpgrade[unitIndex] = false;
+        }
 
         // NOWA LOGIKA: priorytety 1�7 wybieraj� CEL, a my robimy 1 krok w jego stron�
         if (TryChooseStepByPriorities(unitIndex, currentPos, lastPos, out var step))
@@ -263,46 +279,63 @@ public class BotController : MonoBehaviour
 
         int attackerArmy = tokens[unitIndex].armySize;
         List<Vector3Int> inRange = map.GetNeighbours(currentPos);
+        
+        if (attackerArmy < tokenArmyCap * 0.5f)
+        {
+            int need = tokenArmyCap - attackerArmy;
+            if ((population - virtualReservedPopulation) >= need)
+            {
+                virtualReservedPopulation += need;
+                PriorityCounters[8]++; 
+                return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, spawnPos, out step);
+            }
+        }
 
-        if (TryPickMineTarget(inRange, currentPos, attackerArmy, out var t1))
+        /*if (TryPickMineTarget(inRange, currentPos, attackerArmy, out var t1))
         {
             PriorityCounters[1]++; // Zliczanie
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t1, out step);
-        }
+        }*/
 
         if (TryPickNeutralMaxPopInRange(inRange, currentPos, out var t2))
         {
             PriorityCounters[2]++;
+            reservedDestinations.Add(t2);
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t2, out step);
         }
 
         if (TryPickNeutralBorderMaxPop(currentPos, out var t3))
         {
             PriorityCounters[3]++;
+            reservedDestinations.Add(t3);
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t3, out step);
         }
 
         if (TryPickEnemyBaseInRange(currentPos, attackerArmy, out var t4))
         {
             PriorityCounters[4]++;
+            reservedDestinations.Add(t4);
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t4, out step);
         }
 
         if (TryPickEnemyTokenInRange(currentPos, attackerArmy, out var t5))
         {
             PriorityCounters[5]++;
+            reservedDestinations.Add(t5);
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t5, out step);
         }
 
         if (TryPickEnemyMaxPopInRangeAttackable(inRange, currentPos, attackerArmy, out var t6))
         {
             PriorityCounters[6]++;
+            reservedDestinations.Add(t6);
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t6, out step);
         }
 
         if (TryPickEnemyBorderMaxPop(currentPos, out var t7))
         {
             PriorityCounters[7]++;
+            reservedDestinations.Add(t7);
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t7, out step);
         }
 
@@ -366,6 +399,7 @@ public class BotController : MonoBehaviour
 
         foreach (var p in inRange)
         {
+            if (reservedDestinations.Contains(p)) continue;
             if (TileDistBFS(currentPos, p, visionRadius) > visionRadius) continue;
             if (!map.TryGetCell(p, out var cell)) continue;
             if (!cell.passable) continue;
@@ -401,6 +435,7 @@ public class BotController : MonoBehaviour
 
         foreach (var p in borderNeutrals)
         {
+            if (reservedDestinations.Contains(p)) continue;
             if (!map.TryGetCell(p, out var cell)) continue;
             if (!cell.passable) continue;
             if (cell.ownerId != 0) continue;
@@ -427,6 +462,7 @@ public class BotController : MonoBehaviour
         if (enemyBot == null) return false;
 
         Vector3Int enemyBase = enemyBot.SpawnPos;
+        if (reservedDestinations.Contains(enemyBase)) return false;
         if (HexDist(currentPos, enemyBase) > visionRadius) return false;
 
 
@@ -454,6 +490,7 @@ public class BotController : MonoBehaviour
         for (int i = 0; i < enemyBot.TokenCount; i++)
         {
             Vector3Int pos = enemyBot.GetTokenPos(i);
+            if (reservedDestinations.Contains(pos)) continue;
             int dist = HexDist(currentPos, pos);
             if (dist > visionRadius) continue;
 
@@ -486,6 +523,7 @@ public class BotController : MonoBehaviour
 
         foreach (var p in inRange)
         {
+            if (reservedDestinations.Contains(p)) continue;
             if (TileDistBFS(currentPos, p, visionRadius) > visionRadius) continue;
             if (!map.TryGetCell(p, out var cell)) continue;
             if (!cell.passable) continue;
@@ -528,6 +566,7 @@ public class BotController : MonoBehaviour
 
         foreach (var p in borderEnemies)
         {
+            if (reservedDestinations.Contains(p)) continue;
             if (!map.TryGetCell(p, out var cell)) continue;
             if (!cell.passable) continue;
             if (cell.ownerId == 0 || cell.ownerId == botOwnerId) continue;
@@ -691,30 +730,23 @@ public class BotController : MonoBehaviour
 
     void TryCreateNewUnitFromPopulation()
     {
-        // je�li baza przej�ta - nie tworzymy
         if (map.GetOwnerId(spawnPos) != botOwnerId) return;
-
-        // tworzymy tyle token�w ile si� da: zasoby + limit
+        
         while (tokens.Count < maxArmyTokens && population >= populationToCreateNewUnit)
         {
             population -= populationToCreateNewUnit;
 
             Vector3Int spawnCell = GetSpawnCellForNewToken();
-
-            int idx = SpawnToken(spawnCell, initialArmySize: 0); // start 0, potem dobijamy z populacji
+            
+            int idx = SpawnToken(spawnCell, initialArmySize: populationToCreateNewUnit); 
             if (idx >= 0)
             {
                 tokenPositions[idx] = spawnCell;
                 tokenLastPositions[idx] = spawnCell;
-
-                // nowy oddzia� ma d��y� do tokenArmyCap, ale tylko je�li populacja pozwala
-                RefillTokenUpToCapFromPopulation(idx);
             }
-
 
             if (map.TryGetCell(spawnPos, out var baseCell))
                 baseCell.army = Mathf.Min(baseArmyCap, baseCell.army + baseArmyBonus);
-
         }
     }
 
@@ -738,6 +770,7 @@ public class BotController : MonoBehaviour
         tokens.Add(token);
         tokenPositions.Add(cell);
         tokenLastPositions.Add(cell);
+        tokenNeedsCapUpgrade.Add(false);
 
         return tokens.Count - 1;
     }
@@ -825,10 +858,10 @@ public class BotController : MonoBehaviour
 
             winner.ClaimTileAfterTokenBattle(pos);
 
-            if (hasMine && previousOwner != 0 && previousOwner != winner.botOwnerId)
+            /*if (hasMine && previousOwner != 0 && previousOwner != winner.botOwnerId)
             {
                 loser.ownedMineCount = Mathf.Max(0, loser.ownedMineCount - 1);
-            }
+            }*/
         }
     }
 
@@ -842,8 +875,8 @@ public class BotController : MonoBehaviour
         map.SetOwnerAndTile(pos, botOwnerId, botTile);
         cell.army = populationPerCapture;
 
-        if (cell.hasMine && previousOwner != botOwnerId)
-            ownedMineCount++;
+        /*if (cell.hasMine && previousOwner != botOwnerId)
+            ownedMineCount++;*/
     }
 
     // ------------------------------------------------------------
@@ -908,8 +941,8 @@ public class BotController : MonoBehaviour
         map.SetOwnerAndTile(pos, botOwnerId, botTile);
         cell.army = populationPerCapture;
 
-        if (cell.hasMine && previousOwner != botOwnerId)
-            ownedMineCount++;
+        /*if (cell.hasMine && previousOwner != botOwnerId)
+            ownedMineCount++;*/
     }
 
     void KillToken(int unitIndex)
@@ -921,6 +954,7 @@ public class BotController : MonoBehaviour
         tokens.RemoveAt(unitIndex);
         tokenPositions.RemoveAt(unitIndex);
         tokenLastPositions.RemoveAt(unitIndex);
+        tokenNeedsCapUpgrade.RemoveAt(unitIndex);
     }
 
     // ------------------------------------------------------------
@@ -941,8 +975,8 @@ public class BotController : MonoBehaviour
 
         cell.army = populationPerCapture;
 
-        if (cell.hasMine)
-            ownedMineCount++;
+        /*if (cell.hasMine)
+            ownedMineCount++;*/
     }
 
     // ------------------------------------------------------------

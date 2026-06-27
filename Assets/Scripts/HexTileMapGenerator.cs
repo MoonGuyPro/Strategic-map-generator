@@ -58,7 +58,7 @@ public class HexMapGenerator : MonoBehaviour
 
         GenerateMap();
         GeneratePlayerSpawns();
-        GenerateMines();
+        //GenerateMines();
 
         RefreshDebugList();
 
