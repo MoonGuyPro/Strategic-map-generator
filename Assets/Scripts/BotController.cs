@@ -13,29 +13,28 @@ public class BotController : MonoBehaviour
     public int populationPerCapture = 10;
 
     [Header("Rekrutacja oddzia��w")]
-    public int populationToCreateNewUnit = 700;
-    public int newUnitArmySize = 500;
+    public int populationToCreateNewUnit = 600;
     public int baseArmyBonus = 100;
     public int maxArmyTokens = 5;
 
-    [Header("Z�oto")]
+    /*[Header("Z�oto")]
     public int gold = 0;
     public int goldPerIntervalByBase = 70;
     public int goldGainedByMine = 30;
-    public int ownedMineCount = 0;
+    public int ownedMineCount = 0;*/
 
     [Header("Armia (wizualizacja)")]
     public ArmyToken armyTokenPrefab;
     public Sprite armySprite;
 
     [Header("Limity armii")]
-    public int baseArmyCap = 600;                 // limit armii na polu bazy
-    public int tokenArmyCapStart = 500;           // pocz�tkowy limit armii w tokenie
-    public int tokenArmyCapIncreasePerInterval = 100; // +100 co 15 tur
-    public int baseStartingArmy = 600;
+    public int tokenArmyCapIncreasePerInterval = 100; // +100 co iles tur
+    public float tokenArmyCapPercentWhenReturn = 0.3f;
 
     [Header("Baza")]
-    public GameObject basePrefab;   
+    public GameObject basePrefab;  
+    public int baseArmyCap = 700;                 // limit armii na polu bazy
+    public int baseStartingArmy = 700;
 
     [Header("Walka")]
     [Range(0f, 2f)] public float winLossMin = 0.8f;
@@ -48,7 +47,7 @@ public class BotController : MonoBehaviour
 
     [Header("AI")]
     [Tooltip("Traktowane jako 'zasi�g ruchu' do wyszukiwania celu (promie� w heksach). Token i tak robi 1 krok na tur�.")]
-    public int visionRadius = 1;
+    public int visionRadius = 2;
 
     [Header("AI - przeciwnik")]
     [Tooltip("Ustaw w Inspectorze albo w BotTurnManager: botA.enemyBot=botB i odwrotnie.")]
@@ -69,8 +68,8 @@ public class BotController : MonoBehaviour
     // Populacja pasywna co X tur
     // ------------------------------------------------------------
     [Header("Populacja - pasywny przyrost")]
-    public int populationIncomeIntervalTurns = 15;
-    [Range(0f, 1f)] public float populationIncomePercent = 0.10f;
+    public int populationIncomeIntervalTurns = 10;
+    [Range(0f, 1f)] public float populationIncomePercent = 0.20f;
 
     private int turnCounter = 0;
 
@@ -85,26 +84,22 @@ public class BotController : MonoBehaviour
             Debug.LogError("BotController: brak map lub botTile!");
             yield break;
         }
-
-        // Czekamy a� generator mapy sko�czy (to jest sens IsGenerated)
+        
         while (!map.IsGenerated)
             yield return null;
 
         spawnPos = (spawnNumber == 2) ? map.spawnPosPlayer2 : map.spawnPosPlayer1;
-
-        // baza ma by� nasza na start
+        
         map.SetOwnerAndTile(spawnPos, botOwnerId, botTile);
-
-        tokenArmyCap = tokenArmyCapStart;
+        
+        tokenArmyCap = populationToCreateNewUnit; 
         
         if (map.TryGetCell(spawnPos, out var baseCell))
             baseCell.army = baseStartingArmy;
 
-
         SpawnBase();
-
-        // token ma wystartowa� w bazie
-        int tokenIndex = SpawnToken(spawnPos, initialArmySize: 300);
+        
+        int tokenIndex = SpawnToken(spawnPos, initialArmySize: populationToCreateNewUnit);
         if (tokenIndex >= 0)
         {
             tokenPositions[tokenIndex] = spawnPos;
@@ -138,8 +133,8 @@ public class BotController : MonoBehaviour
             case 5: return "5) Oddzial przeciwnika w zasiegu";
             case 6: return "6) Wrogie pole o najwiekszej populacji w zasiegu";
             case 7: return "7) Wrogie pole graniczne";
-            case 8: return "CRIT) Odwrot do bazy (<50% wojska)"; 
-            case 9: return "9) Nieaktywne (Usuniete)";
+            case 8: return "8) Odwrot do bazy (<30% wojska)"; 
+            case 9: return "9) Obrona terytorium (Przechwycenie wroga)";
             default: return "0) Ruch losowy (Fallback)";
         }
     }
@@ -205,13 +200,6 @@ public class BotController : MonoBehaviour
         Debug.LogWarning($"Bot[{botOwnerId}] tokenArmyCap zwi�kszony do {tokenArmyCap}");
     }
 
-    void RefillAllTokensUpToCapFromPopulation()
-    {
-        // dobijamy istniej�ce tokeny do nowego limitu (z populacji)
-        for (int i = 0; i < tokens.Count; i++)
-            RefillTokenUpToCapFromPopulation(i);
-    }
-
     void RefillTokenUpToCapFromPopulation(int tokenIndex)
     {
         if (tokenIndex < 0 || tokenIndex >= tokens.Count) return;
@@ -272,7 +260,7 @@ public class BotController : MonoBehaviour
     // ============================================================
     // PRIORYTETY 1�7
     // ============================================================
-    bool TryChooseStepByPriorities(int unitIndex, Vector3Int currentPos, Vector3Int lastPos, out Vector3Int step)
+bool TryChooseStepByPriorities(int unitIndex, Vector3Int currentPos, Vector3Int lastPos, out Vector3Int step)
     {
         step = default;
         if (unitIndex < 0 || unitIndex >= tokens.Count) return false;
@@ -280,7 +268,16 @@ public class BotController : MonoBehaviour
         int attackerArmy = tokens[unitIndex].armySize;
         List<Vector3Int> inRange = map.GetNeighbours(currentPos);
         
-        if (attackerArmy < tokenArmyCap * 0.5f)
+        // NAJWYŻSZY PRIORYTET TAKTYCZNY: Zajęcie bazy wroga (jeśli widoczna i do wygrania)
+        if (TryPickEnemyBaseInRange(currentPos, attackerArmy, out var t4))
+        {
+            PriorityCounters[4]++;
+            reservedDestinations.Add(t4); 
+            return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t4, out step);
+        }
+
+        // PRIORYTET 8: Odwrót krytyczny (<50% max limitu wojska)
+        if (attackerArmy < tokenArmyCap * tokenArmyCapPercentWhenReturn)
         {
             int need = tokenArmyCap - attackerArmy;
             if ((population - virtualReservedPopulation) >= need)
@@ -291,11 +288,15 @@ public class BotController : MonoBehaviour
             }
         }
 
-        /*if (TryPickMineTarget(inRange, currentPos, attackerArmy, out var t1))
+        // PRIORYTET 9: Obrona terytorium / Intercepcja atakującego tokenu wroga
+        if (TryPickInterceptTarget(unitIndex, currentPos, out var t9))
         {
-            PriorityCounters[1]++; // Zliczanie
-            return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t1, out step);
-        }*/
+            PriorityCounters[9]++;
+            reservedDestinations.Add(t9); // Rezerwacja pozycji wroga (zgodnie z systemem pól)
+            return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t9, out step);
+        }
+
+        /*if (TryPickMineTarget(inRange, currentPos, attackerArmy, out var t1)) ... wyłączone */
 
         if (TryPickNeutralMaxPopInRange(inRange, currentPos, out var t2))
         {
@@ -309,13 +310,6 @@ public class BotController : MonoBehaviour
             PriorityCounters[3]++;
             reservedDestinations.Add(t3);
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t3, out step);
-        }
-
-        if (TryPickEnemyBaseInRange(currentPos, attackerArmy, out var t4))
-        {
-            PriorityCounters[4]++;
-            reservedDestinations.Add(t4);
-            return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t4, out step);
         }
 
         if (TryPickEnemyTokenInRange(currentPos, attackerArmy, out var t5))
@@ -339,7 +333,7 @@ public class BotController : MonoBehaviour
             return TryStepTowardsTarget(currentPos, lastPos, attackerArmy, t7, out step);
         }
 
-        PriorityCounters[0]++; // Jeśli żaden priorytet nie wszedł, podbijamy licznik ruchu losowego
+        PriorityCounters[0]++; 
         return false;
     }
     
@@ -982,11 +976,11 @@ public class BotController : MonoBehaviour
     // ------------------------------------------------------------
     // Gold
     // ------------------------------------------------------------
-    void GainGoldForTurn()
+    /*void GainGoldForTurn()
     {
         int income = goldPerIntervalByBase + (ownedMineCount * goldGainedByMine);
         gold += income;
-    }
+    }*/
 
     // ------------------------------------------------------------
     // Fallback random
@@ -1077,6 +1071,102 @@ public class BotController : MonoBehaviour
 
         spawnedBase = Instantiate(basePrefab, worldPos, Quaternion.identity, transform);
         spawnedBase.name = $"Base_Bot_{botOwnerId}";
+    }
+    
+    // ============================================================
+    // LOGIKA SYSTEMU OBRONY TERYTORIUM (Z RESTRYKTEM WZROKU)
+    // ============================================================
+    bool TryPickInterceptTarget(int unitIndex, Vector3Int currentPos, out Vector3Int target)
+    {
+        target = default;
+        if (enemyBot == null) return false;
+
+        // Przeszukujemy tokeny wroga
+        for (int j = 0; j < enemyBot.TokenCount; j++)
+        {
+            Vector3Int enemyPos = enemyBot.GetTokenPos(j);
+
+            // Rezerwacja: Jeśli inny nasz token już poluje na tego wroga w tej turze, pomiń go
+            if (reservedDestinations.Contains(enemyPos)) continue;
+
+            // WZROK: Sprawdzamy, czy wrogi token jest w zasięgu wzroku terytorium lub naszych jednostek
+            if (!IsEnemyVisibleToOurNetwork(enemyPos)) continue;
+
+            // Wyznaczamy, który z naszych tokenów jest najlepszym kandydatem do obrony przed wrogiem 'j'
+            int bestOurTokenIdx = FindBestDefenderForEnemyToken(j);
+
+            // Jeśli to TEN aktualnie przetwarzany token jest wyznaczonym obrońcą – ruszaj do ataku
+            if (bestOurTokenIdx == unitIndex)
+            {
+                target = enemyPos;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Sprawdza, czy wróg znajduje się w polu widzenia terytorium lub jakiegokolwiek naszego tokenu
+    bool IsEnemyVisibleToOurNetwork(Vector3Int enemyPos)
+    {
+        // 1. Czy wróg stoi na naszym terytorium LUB w promieniu visionRadius od jakiegokolwiek naszego kafelka?
+        // (Jeśli stoi na naszym polu, dist wynosi 0, czyli warunek 0 <= visionRadius jest automatycznie spełniony)
+        foreach (var cell in map.DebugCells)
+        {
+            if (cell.ownerId == botOwnerId && HexDist(cell.coord, enemyPos) <= visionRadius)
+                return true;
+        }
+
+        // 2. Czy wróg znajduje się w zasięgu wzroku (visionRadius) któregokolwiek z naszych żywych tokenów?
+        for (int i = 0; i < tokens.Count; i++)
+        {
+            if (HexDist(tokenPositions[i], enemyPos) <= visionRadius)
+                return true;
+        }
+
+        // Jeśli wyszedł poza nasz zasięg wzroku i terytorium – zgubiliśmy go w mgle wojny
+        return false;
+    }
+
+    int FindBestDefenderForEnemyToken(int enemyTokenIdx)
+    {
+        Vector3Int enemyPos = enemyBot.GetTokenPos(enemyTokenIdx);
+        ArmyToken enemyToken = enemyBot.GetToken(enemyTokenIdx);
+        if (enemyToken == null) return -1;
+
+        int enemyArmy = enemyToken.armySize;
+        int bestTokenIdx = -1;
+        int minDistance = int.MaxValue;
+
+        // STRATEGIA A: Szukamy najbliższego naszego tokenu, który ma WIĘCEJ wojska niż wróg
+        for (int i = 0; i < tokens.Count; i++)
+        {
+            if (tokens[i].armySize > enemyArmy)
+            {
+                int dist = HexDist(tokenPositions[i], enemyPos);
+                if (dist < minDistance)
+                {
+                    minDistance = dist;
+                    bestTokenIdx = i;
+                }
+            }
+        }
+
+        // STRATEGIA B: Jeśli nie posiadamy silniejszego tokenu, wysyłamy po prostu ten najbliższy
+        if (bestTokenIdx == -1)
+        {
+            minDistance = int.MaxValue;
+            for (int i = 0; i < tokens.Count; i++)
+            {
+                int dist = HexDist(tokenPositions[i], enemyPos);
+                if (dist < minDistance)
+                {
+                    minDistance = dist;
+                    bestTokenIdx = i;
+                }
+            }
+        }
+
+        return bestTokenIdx;
     }
 
 

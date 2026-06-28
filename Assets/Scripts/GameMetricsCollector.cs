@@ -151,9 +151,10 @@ public static class GameMetricsCollector
     {
         writer.WriteLine($"--------------------------------------------------");
         writer.WriteLine($"BOT {bot.botOwnerId} (Spawn {bot.spawnNumber}):");
-        writer.WriteLine($"Zgromadzone zloto: {bot.gold}, Populacja: {bot.population}");
+        writer.WriteLine($"Zgromadzona Populacja: {bot.population}");
         writer.WriteLine("Uzycie priorytetow decyzyjnych:");
-        for (int i = 1; i <= 7; i++)
+        
+        for (int i = 1; i <= 9; i++)
         {
             writer.WriteLine($"  -> {bot.GetPriorityName(i)}: {bot.PriorityCounters[i]} razy");
         }
