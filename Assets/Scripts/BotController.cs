@@ -1168,6 +1168,51 @@ bool TryChooseStepByPriorities(int unitIndex, Vector3Int currentPos, Vector3Int 
 
         return bestTokenIdx;
     }
+    
+
+    public void ResetBotState()
+    {
+        // 1. Fizycznie niszczymy obiekty tokenów ze sceny i czyścimy listy
+        foreach (var t in tokens)
+        {
+            if (t != null) Destroy(t.gameObject);
+        }
+        tokens.Clear();
+        tokenPositions.Clear();
+        tokenLastPositions.Clear();
+        tokenNeedsCapUpgrade.Clear();
+        reservedDestinations.Clear();
+
+        // 2. Niszczymy obiekt starej bazy
+        if (spawnedBase != null) Destroy(spawnedBase);
+        spawnedBase = null;
+
+        // 3. Zerujemy liczniki i rezerwacje pamięci
+        System.Array.Clear(PriorityCounters, 0, PriorityCounters.Length);
+        virtualReservedPopulation = 0;
+        turnCounter = 0;
+        population = 0; // Reset zasobów do stanu zero przed nową rekrutacją startową
+        initialized = false;
+
+        // 4. Odpalamy ponownie procedurę ustawienia bazy i tokenu startowego
+        spawnPos = (spawnNumber == 2) ? map.spawnPosPlayer2 : map.spawnPosPlayer1;
+        map.SetOwnerAndTile(spawnPos, botOwnerId, botTile);
+        tokenArmyCap = populationToCreateNewUnit; 
+        
+        if (map.TryGetCell(spawnPos, out var baseCell))
+            baseCell.army = baseStartingArmy;
+
+        SpawnBase();
+        
+        int tokenIndex = SpawnToken(spawnPos, initialArmySize: populationToCreateNewUnit);
+        if (tokenIndex >= 0)
+        {
+            tokenPositions[tokenIndex] = spawnPos;
+            tokenLastPositions[tokenIndex] = spawnPos;
+        }
+
+        initialized = true;
+    }
 
 
 }

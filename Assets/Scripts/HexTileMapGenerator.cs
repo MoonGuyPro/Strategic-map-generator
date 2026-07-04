@@ -409,5 +409,14 @@ public class HexMapGenerator : MonoBehaviour
             (list[i], list[j]) = (list[j], list[i]);
         }
     }
+    
+    public void RerunMapGeneration()
+    {
+        IsGenerated = false;
+        GenerateMap();
+        GeneratePlayerSpawns();
+        RefreshDebugList();
+        IsGenerated = true;
+    }
 
 }

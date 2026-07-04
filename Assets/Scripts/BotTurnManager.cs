@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 
 public class BotTurnManager : MonoBehaviour
@@ -30,6 +31,32 @@ public class BotTurnManager : MonoBehaviour
     private int currentGlobalTurnCount = 0;
     private int currentBatchIndex = 0;
 
+    // Struktury do obsługi formatu JSON Pythona
+    [System.Serializable]
+    private class PythonInputRecipe
+    {
+        public int minSpawnDistance;
+        public int population_max;
+        public int populationToCreateNewUnit;
+    }
+
+    [System.Serializable]
+    private class PythonOutputMetrics
+    {
+        public float avgTerritorialImbalance;
+        public float gameLength;
+        public float conqueringRate;
+    }
+
+    // Listy do zbierania średnich wyników z całego pokolenia (batcha 10 gier)
+    private List<float> batchTerritorialImbalances = new List<float>();
+    private List<float> batchGameLengths = new List<float>();
+    private List<float> batchConqueringRates = new List<float>();
+
+    // Zmienne pomocnicze do liczenia tura po turze w obrębie jednego meczu
+    private float currentMatchTerritorialImbalanceSum = 0f;
+    private int currentMatchRecordedTurns = 0;
+
     private System.Collections.IEnumerator Start()
     {
         if (botA == null || botB == null || mapGenerator == null)
@@ -40,8 +67,12 @@ public class BotTurnManager : MonoBehaviour
 
         botA.enemyBot = botB;
         botB.enemyBot = botA;
+        
+        if (System.Environment.CommandLine.Contains("-batchmode"))
+        {
+            executionMode = GameExecutionMode.FastSimulationBatch;
+        }
 
-        // Czekamy, aż generator mapy skończy generowanie pierwszej mapy
         while (!mapGenerator.IsGenerated)
             yield return null;
 
@@ -51,7 +82,6 @@ public class BotTurnManager : MonoBehaviour
         }
         else
         {
-            // Odpalamy masową symulację wsadową
             StartCoroutine(ExecuteBatchSimulations());
         }
     }
@@ -68,7 +98,6 @@ public class BotTurnManager : MonoBehaviour
 
     void Update()
     {
-        // Klasyczna logika czasu rzeczywistego (tylko w trybie RealTime)
         if (executionMode != GameExecutionMode.RealTime || !initialized || gameOver) return;
 
         timer -= Time.deltaTime;
@@ -93,7 +122,10 @@ public class BotTurnManager : MonoBehaviour
             botB.ResolveCollisionsWith(botA);
         }
 
-        // Zbieramy metryki na koniec każdej tury bota
+        // Lokalne zbieranie danych na potrzeby mostu z Pythonem
+        RecordLocalTurnMetrics();
+
+        // Standardowy kolektor statystyk tekstowych
         GameMetricsCollector.RecordTurnMetrics(botA, botB, mapGenerator);
 
         if (CheckGameOver() || currentGlobalTurnCount >= maxTurnsCap)
@@ -105,13 +137,33 @@ public class BotTurnManager : MonoBehaviour
         isATurn = !isATurn;
     }
 
+    void RecordLocalTurnMetrics()
+    {
+        int ownedA = 0; int ownedB = 0; int totalLand = 0;
+        foreach (var cell in mapGenerator.DebugCells)
+        {
+            if (cell.isWater || !cell.passable) continue;
+            totalLand++;
+            if (cell.ownerId == botA.botOwnerId) ownedA++;
+            else if (cell.ownerId == botB.botOwnerId) ownedB++;
+        }
+
+        if (totalLand > 0)
+        {
+            float pctA = (float)ownedA / totalLand;
+            float pctB = (float)ownedB / totalLand;
+            currentMatchTerritorialImbalanceSum += Mathf.Abs(pctA - pctB);
+            currentMatchRecordedTurns++;
+        }
+    }
+
     bool CheckGameOver()
     {
         int ownerA = mapGenerator.GetOwnerId(botA.SpawnPos);
         int ownerB = mapGenerator.GetOwnerId(botB.SpawnPos);
 
-        if (ownerA != botA.botOwnerId) return true; // Bot B przejął bazę A
-        if (ownerB != botB.botOwnerId) return true; // Bot A przejął bazę B
+        if (ownerA != botA.botOwnerId) return true; 
+        if (ownerB != botB.botOwnerId) return true; 
         return false;
     }
 
@@ -127,8 +179,24 @@ public class BotTurnManager : MonoBehaviour
         gameOver = true;
         int winnerId = GetWinnerId();
         
-        // Zapis do pliku tekstowego za pomocą kolektora
         GameMetricsCollector.SaveGameReport(currentGlobalTurnCount, maxTurnsCap, botA, botB, winnerId);
+
+        // Zapisz dane z pojedynczego meczu do list zbiorczych pod koniec gry
+        float matchAvgTerritorialImbalance = currentMatchRecordedTurns > 0 ? currentMatchTerritorialImbalanceSum / currentMatchRecordedTurns : 0f;
+        batchTerritorialImbalances.Add(matchAvgTerritorialImbalance);
+
+        float lengthPct = ((float)currentGlobalTurnCount / maxTurnsCap) * 100f;
+        batchGameLengths.Add(lengthPct);
+
+        int finalCaptured = 0; int totalLand = 0;
+        foreach (var cell in mapGenerator.DebugCells)
+        {
+            if (cell.isWater || !cell.passable) continue;
+            totalLand++;
+            if (cell.ownerId != 0) finalCaptured++;
+        }
+        float conqRate = totalLand > 0 ? ((float)finalCaptured / totalLand) * 100f : 0f;
+        batchConqueringRates.Add(conqRate);
 
         if (executionMode == GameExecutionMode.RealTime)
         {
@@ -139,22 +207,40 @@ public class BotTurnManager : MonoBehaviour
         }
     }
 
-    // Pętla dla szybkiej generacji masowej (FastSimulationBatch)
     System.Collections.IEnumerator ExecuteBatchSimulations()
     {
-        Debug.LogWarning($"URUCHOMIONO TRYB MASOWEJ SYMULACJI: {batchSimulationCount} ROZGRYWEK.");
+        Debug.LogWarning("=== [UNITY] URUCHOMIONO TRYB MASOWEJ SYMULACJI BATCH ===");
+
+        string inputPath = Path.Combine(Directory.GetCurrentDirectory(), "map_input.json");
+        if (File.Exists(inputPath))
+        {
+            string jsonText = File.ReadAllText(inputPath);
+            PythonInputRecipe recipe = JsonUtility.FromJson<PythonInputRecipe>(jsonText);
+
+            mapGenerator.minSpawnDistance = recipe.minSpawnDistance;
+            mapGenerator.population_max = recipe.population_max;
+            botA.populationToCreateNewUnit = recipe.populationToCreateNewUnit;
+            botB.populationToCreateNewUnit = recipe.populationToCreateNewUnit;
+
+            Debug.LogWarning($"=== [UNITY SUCCESS] Wczytano JSON: SpawnsDist={recipe.minSpawnDistance}, PopMax={recipe.population_max}, UnitCost={recipe.populationToCreateNewUnit}");
+        }
+
+        batchTerritorialImbalances.Clear();
+        batchGameLengths.Clear();
+        batchConqueringRates.Clear();
 
         for (currentBatchIndex = 1; currentBatchIndex <= batchSimulationCount; currentBatchIndex++)
         {
-            // 1. Reset i generowanie nowej losowej mapy
-            mapGenerator.SendMessage("Start"); // Wymuszamy ponowne Start() na generatorze mapy
-            yield return null; // Czekamy klatkę na wygenerowanie struktur lądu i kopalń
-            
-            while (!mapGenerator.IsGenerated) yield return null;
+            currentMatchTerritorialImbalanceSum = 0f;
+            currentMatchRecordedTurns = 0;
 
-            // 2. Reset botów do stanu początkowego
-            botA.SendMessage("Start");
-            botB.SendMessage("Start");
+            // FIX: Jawne wymuszenie czyszczenia i nowej generacji struktur lądu
+            mapGenerator.RerunMapGeneration();
+            yield return null; 
+
+            // FIX: Jawne wyczyszczenie pamięci, list, liczników i usunięcie starych klonów jednostek bota
+            botA.ResetBotState();
+            botB.ResetBotState();
             yield return null;
 
             currentGlobalTurnCount = 0;
@@ -162,7 +248,6 @@ public class BotTurnManager : MonoBehaviour
             GameMetricsCollector.Reset(mapGenerator);
             isATurn = randomizeFirstBot ? (Random.Range(0, 2) == 0) : true;
 
-            // 3. Pętla wykonująca grę bez czekania na czas rzeczywisty (Headless Loop)
             while (!gameOver && currentGlobalTurnCount < maxTurnsCap)
             {
                 ExecuteSingleBotTurn();
@@ -171,11 +256,28 @@ public class BotTurnManager : MonoBehaviour
             Debug.Log($"Ukonczono symulacje meczu nr: {currentBatchIndex} / {batchSimulationCount}");
         }
 
-        Debug.LogError("=== WSZYSTKIE SYMULACJE ZAKONCZONE! Pliki TXT sa gotowe w folderze projektu. ===");
-        #if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false;
-        #else
-        Application.Quit();
-        #endif
+        PythonOutputMetrics finalJsonReport = new PythonOutputMetrics();
+        finalJsonReport.avgTerritorialImbalance = CalculateAverage(batchTerritorialImbalances);
+        finalJsonReport.gameLength = CalculateAverage(batchGameLengths);
+        finalJsonReport.conqueringRate = CalculateAverage(batchConqueringRates);
+
+        string outputPath = Path.Combine(Directory.GetCurrentDirectory(), "metrics_output.json");
+        string jsonOutputText = JsonUtility.ToJson(finalJsonReport, true);
+        File.WriteAllText(outputPath, jsonOutputText);
+
+        Debug.LogError("=== [UNITY SUCCESS] ZAPISANO PLIK METRICS_OUTPUT.JSON DLA PYTHONA ===");
+
+        if (System.Environment.CommandLine.Contains("-batchmode"))
+            UnityEditor.EditorApplication.Exit(0); 
+        else
+            UnityEditor.EditorApplication.isPlaying = false;
+    }
+
+    private float CalculateAverage(List<float> list)
+    {
+        if (list.Count == 0) return 0f;
+        float sum = 0f;
+        foreach (var v in list) sum += v;
+        return sum / list.Count;
     }
 }
