@@ -6,51 +6,108 @@ import skfuzzy as fuzz
 from skfuzzy import control as ctrl
 
 # ============================================================
-# 1. KONFIGURACJA LOGIKI ROZMYTEJ (FUZZY SYSTEM)
+# 1. PEŁNA KONFIGURACJA LOGIKI ROZMYTEJ (MAPPING 1:1 Z GDD)
 # ============================================================
 
-# Definiujemy wejścia (od 0% do 100%) oraz wyjścia (ocena od 0.0 do 1.0)
+# WEJŚCIA DLA KRYTERIUM BALANSU
 term_imbalance = ctrl.Antecedent(np.arange(0, 101, 1), 'term_imbalance')
-conq_rate = ctrl.Antecedent(np.arange(0, 101, 1), 'conq_rate')
+growth_imbalance = ctrl.Antecedent(np.arange(0, 101, 1), 'growth_imbalance')
+military_imbalance = ctrl.Antecedent(np.arange(0, 101, 1), 'military_imbalance')
 
+# WEJŚCIA DLA KRYTERIUM DYNAMIZMU
+conq_rate = ctrl.Antecedent(np.arange(0, 101, 1), 'conq_rate')
+reconq_rate = ctrl.Antecedent(np.arange(0, 101, 1), 'reconq_rate')
+peaks = ctrl.Antecedent(np.arange(0, 101, 1), 'peaks')
+
+# WYJŚCIA SYSTEMU
 balance = ctrl.Consequent(np.arange(0, 1.01, 0.01), 'balance')
 dynamism = ctrl.Consequent(np.arange(0, 1.01, 0.01), 'dynamism')
 
-term_imbalance['low'] = fuzz.trimf(term_imbalance.universe, [0, 0, 25])
-term_imbalance['medium'] = fuzz.trimf(term_imbalance.universe, [15, 35, 55])
-term_imbalance['high'] = fuzz.trapmf(term_imbalance.universe, [45, 70, 100, 100])
+# --- Definicja Funkcji Przynależności dla Metryk Balansu ---
+for var in [term_imbalance, growth_imbalance, military_imbalance]:
+    var['low'] = fuzz.trimf(var.universe, [0, 0, 30])
+    var['medium'] = fuzz.trimf(var.universe, [15, 45, 75])
+    var['high'] = fuzz.trapmf(var.universe, [60, 80, 100, 100])
 
-conq_rate['low'] = fuzz.trimf(conq_rate.universe, [0, 0, 40])
-conq_rate['medium'] = fuzz.trimf(conq_rate.universe, [30, 50, 70])
-conq_rate['high'] = fuzz.trapmf(conq_rate.universe, [60, 80, 100, 100])
+# --- Definicja Funkcji Przynależności dla Metryk Dynamizmu ---
+conq_rate['low'] = fuzz.trimf(conq_rate.universe, [0, 0, 55])
+conq_rate['high'] = fuzz.trapmf(conq_rate.universe, [45, 75, 100, 100])
 
-# Definicja poziomów wyjściowych dla ocen końcowych
-balance['low'] = fuzz.trimf(balance.universe, [0, 0, 0.4])
-balance['medium'] = fuzz.trimf(balance.universe, [0.3, 0.5, 0.7])
-balance['high'] = fuzz.trimf(balance.universe, [0.6, 1.0, 1.0])
+peaks['low'] = fuzz.trimf(peaks.universe, [0, 0, 55])
+peaks['high'] = fuzz.trapmf(peaks.universe, [45, 75, 100, 100])
 
-dynamism['low'] = fuzz.trimf(dynamism.universe, [0, 0, 0.4])
-dynamism['medium'] = fuzz.trimf(dynamism.universe, [0.3, 0.5, 0.7])
-dynamism['high'] = fuzz.trimf(dynamism.universe, [0.6, 1.0, 1.0])
+# Specjalne mapowanie dla Reconquering Rate (zgodnie z sekcją 8.1 Twojego GDD)
+reconq_rate['low'] = fuzz.trimf(reconq_rate.universe, [0, 0, 15])
+reconq_rate['medium'] = fuzz.trimf(reconq_rate.universe, [10, 30, 50])
+reconq_rate['high'] = fuzz.trapmf(reconq_rate.universe, [40, 65, 100, 100])
 
-# Baza reguł rozmytych z GDD
-rule1 = ctrl.Rule(term_imbalance['low'], balance['high'])
-rule2 = ctrl.Rule(term_imbalance['medium'], balance['medium'])
-rule3 = ctrl.Rule(term_imbalance['high'], balance['low'])
+# --- Definicja Wyjść Oceny Grywalności ---
+for out in [balance, dynamism]:
+    out['low'] = fuzz.trimf(out.universe, [0, 0, 0.4])
+    out['medium'] = fuzz.trimf(out.universe, [0.3, 0.5, 0.7])
+    out['high'] = fuzz.trimf(out.universe, [0.6, 1.0, 1.0])
 
-rule4 = ctrl.Rule(conq_rate['high'], dynamism['high'])
-rule5 = ctrl.Rule(conq_rate['medium'], dynamism['medium'])
-rule6 = ctrl.Rule(conq_rate['low'], dynamism['low'])
+# ============================================================
+# 2. IMPLEMENTACJA TRÓJWYMIAROWYCH BAZ REGUŁ DECYZYJNYCH
+# ============================================================
 
-# Budowa kontrolera rozmytego
-balance_ctrl = ctrl.ControlSystem([rule1, rule2, rule3])
-dynamism_ctrl = ctrl.ControlSystem([rule4, rule5, rule6])
+balance_rules = [
+    # Stan idealny - wszystko równe
+    ctrl.Rule(term_imbalance['low'] & growth_imbalance['low'] & military_imbalance['low'], balance['high']),
+
+    # Stan lekko zachwiany (jeden element ucieka w medium) -> ocena wysoka/średnia
+    ctrl.Rule(term_imbalance['low'] & growth_imbalance['low'] & military_imbalance['medium'], balance['medium']),
+    ctrl.Rule(term_imbalance['low'] & growth_imbalance['medium'] & military_imbalance['low'], balance['high']),
+    # terytorium ważniejsze niż eko!
+    ctrl.Rule(term_imbalance['medium'] & growth_imbalance['low'] & military_imbalance['low'], balance['medium']),
+
+    # Stan stabilnej asymetrii
+    ctrl.Rule(term_imbalance['medium'] & growth_imbalance['medium'] & military_imbalance['medium'], balance['medium']),
+    ctrl.Rule(term_imbalance['high'] & growth_imbalance['low'] & military_imbalance['low'], balance['medium']),
+
+    # Krytyczne dysproporcje (dwa lub więcej elementów na HIGH) -> ocena LOW
+    ctrl.Rule(term_imbalance['low'] & growth_imbalance['high'] & military_imbalance['high'], balance['low']),
+    ctrl.Rule(term_imbalance['medium'] & growth_imbalance['high'] & military_imbalance['high'], balance['low']),
+    ctrl.Rule(term_imbalance['high'] & growth_imbalance['high'] & military_imbalance['high'], balance['low']),
+
+    # --- POPRAWKA GRADIENTU: Gdy gospodarka ucieka w HIGH, ale terytorium i wojsko są świetne (LOW)
+    # Jeśli terytorium jest skrajnie niskie (bliskie 0), ocena powinna ciągnąć ku HIGH, a nie stać betonowo na 0.5
+    ctrl.Rule(term_imbalance['low'] & growth_imbalance['high'] & military_imbalance['low'], balance['medium']),
+    ctrl.Rule(term_imbalance['low'] & growth_imbalance['medium'] & military_imbalance['medium'], balance['medium']),
+
+    # Reguła nadrzędna: totalna dominacja armii zawsze niszczy balans
+    ctrl.Rule(military_imbalance['high'], balance['low'])
+]
+
+dynamism_rules = [
+    # Całkowity paraliż
+    ctrl.Rule(conq_rate['low'] & reconq_rate['low'] & peaks['low'], dynamism['low']),
+    ctrl.Rule(conq_rate['low'] & reconq_rate['low'] & peaks['high'], dynamism['low']),
+
+    # Wojna pozycyjna / Lokalne starcia
+    ctrl.Rule(conq_rate['low'] & (reconq_rate['high'] | reconq_rate['medium']) & peaks['low'], dynamism['medium']),
+    ctrl.Rule(conq_rate['low'] & (reconq_rate['high'] | reconq_rate['medium']) & peaks['high'], dynamism['medium']),
+
+    # Pusty podbój lub szybki stomp
+    ctrl.Rule(conq_rate['high'] & reconq_rate['low'] & peaks['low'], dynamism['low']),
+    ctrl.Rule(conq_rate['high'] & reconq_rate['low'] & peaks['high'], dynamism['medium']),
+
+    ctrl.Rule(conq_rate['high'] & reconq_rate['high'] & peaks['low'], dynamism['high']),
+    ctrl.Rule(conq_rate['high'] & reconq_rate['medium'] & peaks['low'], dynamism['medium']),
+
+    # Idealny dynamizm
+    ctrl.Rule(conq_rate['high'] & (reconq_rate['high'] | reconq_rate['medium']) & peaks['high'], dynamism['high'])
+]
+
+# Kompilacja kontrolerów wnioskowania
+balance_ctrl = ctrl.ControlSystem(balance_rules)
+dynamism_ctrl = ctrl.ControlSystem(dynamism_rules)
 
 balance_sim = ctrl.ControlSystemSimulation(balance_ctrl)
 dynamism_sim = ctrl.ControlSystemSimulation(dynamism_ctrl)
 
 # ============================================================
-# 2. GENEROWANIE TESTOWEGO PRZEPISU MAPY (JSON INPUT)
+# 3. GENEROWANIE PRZEPISU MAPY I URUCHOMIENIE UNITY (BEZ ZMIAN)
 # ============================================================
 
 test_recipe = {
@@ -64,10 +121,6 @@ with open('map_input.json', 'w') as f:
 
 print(f"--- [PYTHON] Zapisano przepis mapy do pliku JSON.")
 
-# ============================================================
-# 3. URUCHOMIENIE JEDNOSTKI SYMULACYJNEJ UNITY
-# ============================================================
-
 unity_com = r"D:\Unity\6000.2.14f1\Editor\Unity.com"
 project_path = os.getcwd()
 
@@ -76,7 +129,7 @@ unity_cmd = [
     "-batchmode",
     "-nographics",
     "-projectPath", project_path,
-    "-logFile", "unity_batch_log.txt",       # POPRAWKA: Schowaj śmieci do pliku, wyczyść konsolę bota
+    "-logFile", "unity_batch_log.txt",
     "-executeMethod", "BatchRunner.RunSim"
 ]
 
@@ -85,7 +138,7 @@ subprocess.run(unity_cmd, check=True)
 print("--- [PYTHON] Unity zakończyło pracę i przekazało kontrolę.")
 
 # ============================================================
-# 4. ODCZYT WYNIKÓW I WNIOSKOWANIE ROZMYTE (FUZZY INFERENCE)
+# 4. DYNAMICZNY ODCZYT I WNIOSKOWANIE ROZMYTE NA PEŁNYCH METRYKACH
 # ============================================================
 
 if os.path.exists('metrics_output.json'):
@@ -95,28 +148,30 @@ if os.path.exists('metrics_output.json'):
     print("\n--- [PYTHON] Surowe metryki odebrane z Unity:")
     print(json.dumps(metrics, indent=4))
 
-    # Pobieramy dane i konwertujemy do formatu 0-100 dla systemu rozmytego
-    raw_imbalance = metrics["avgTerritorialImbalance"] * 100.0  # zamiana stosunku 0-1 na %
-    raw_conq_rate = metrics["conqueringRate"]
     raw_game_length = metrics["gameLength"]
 
-    # Sprawdzenie reguły nadrzędnej (zbyt krótka gra dyskwalifikuje mapę)
+    # Sprawdzenie reguły nadrzędnej długości meczu (zabezpieczenie przed kuli śnieżnej)
     if raw_game_length < 15.0:
         final_balance = 0.0
         final_dynamism = 0.0
         print("\n=== [WYNIK OCENY] Gra zbyt krótka! Mapa zdyskwalifikowana (Efekt Kuli Śnieżnej). ===")
     else:
-        # Wprowadzamy dane do systemów rozmytych
-        balance_sim.input['term_imbalance'] = raw_imbalance
+        # WSTRZYKNIĘCIE METRYK DO KONTROLERA BALANSU
+        balance_sim.input['term_imbalance'] = metrics["avgTerritorialImbalance"] * 100.0
+        balance_sim.input['growth_imbalance'] = metrics["avgGrowthImbalance"]
+        balance_sim.input['military_imbalance'] = metrics["avgMilitaryImbalance"]
         balance_sim.compute()
         final_balance = balance_sim.output['balance']
 
-        dynamism_sim.input['conq_rate'] = raw_conq_rate
+        # WSTRZYKNIĘCIE METRYK DO KONTROLERA DYNAMIZMU
+        dynamism_sim.input['conq_rate'] = metrics["conqueringRate"]
+        dynamism_sim.input['reconq_rate'] = metrics["reconqueringRate"]
+        dynamism_sim.input['peaks'] = metrics["peakDifferences"]
         dynamism_sim.compute()
         final_dynamism = dynamism_sim.output['dynamism']
 
         print("\n==================================================")
-        print(f" FINALNA OCENA GRYWALNOŚCI MAPY (LOGIKA ROZMYTA):")
+        print(f" FINALNA OCENA GRYWALNOŚCI MAPY (PEŁNY MODEL):")
         print(f" -> Ostateczny BALANS mapy:   {final_balance:.4f} / 1.0000")
         print(f" -> Ostateczny DYNAMIZM mapy: {final_dynamism:.4f} / 1.0000")
         print("==================================================")

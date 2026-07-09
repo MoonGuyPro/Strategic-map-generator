@@ -46,6 +46,10 @@ public class BotTurnManager : MonoBehaviour
         public float avgTerritorialImbalance;
         public float gameLength;
         public float conqueringRate;
+        public float avgGrowthImbalance;
+        public float avgMilitaryImbalance;
+        public float reconqueringRate;
+        public float peakDifferences;
     }
 
     // Listy do zbierania średnich wyników z całego pokolenia (batcha 10 gier)
@@ -56,6 +60,19 @@ public class BotTurnManager : MonoBehaviour
     // Zmienne pomocnicze do liczenia tura po turze w obrębie jednego meczu
     private float currentMatchTerritorialImbalanceSum = 0f;
     private int currentMatchRecordedTurns = 0;
+    
+    // Listy dla nowych metryk pokoleniowych
+    private List<float> batchGrowthImbalances = new List<float>();
+    private List<float> batchMilitaryImbalances = new List<float>();
+    private List<float> batchReconqueringRates = new List<float>();
+    private List<float> batchPeakDifferences = new List<float>();
+
+    // Zmienne meczowe resetowane co grę
+    private float currentMatchGrowthImbalanceSum = 0f;
+    private float currentMatchMilitaryImbalanceSum = 0f;
+    private int currentMatchReconquers = 0;
+    private float currentMatchPeakTerritorialDiff = 0f;
+    private Dictionary<Vector3Int, int> previousCellOwners = new Dictionary<Vector3Int, int>();
 
     private System.Collections.IEnumerator Start()
     {
@@ -140,19 +157,53 @@ public class BotTurnManager : MonoBehaviour
     void RecordLocalTurnMetrics()
     {
         int ownedA = 0; int ownedB = 0; int totalLand = 0;
+        int totalArmyA = 0; int totalArmyB = 0;
+
+        // 1. Zliczanie wojska Bota A (Tokeny + Baza)
+        for (int i = 0; i < botA.TokenCount; i++)
+            if (botA.GetToken(i) != null) totalArmyA += botA.GetToken(i).armySize;
+        if (mapGenerator.TryGetCell(botA.SpawnPos, out var cellBaseA)) totalArmyA += cellBaseA.army;
+
+        // 2. Zliczanie wojska Bota B (Tokeny + Baza)
+        for (int i = 0; i < botB.TokenCount; i++)
+            if (botB.GetToken(i) != null) totalArmyB += botB.GetToken(i).armySize;
+        if (mapGenerator.TryGetCell(botB.SpawnPos, out var cellBaseB)) totalArmyB += cellBaseB.army;
+
+        // 3. Analiza pól i detekcja starć zwrotnych (Reconquer)
         foreach (var cell in mapGenerator.DebugCells)
         {
             if (cell.isWater || !cell.passable) continue;
             totalLand++;
             if (cell.ownerId == botA.botOwnerId) ownedA++;
             else if (cell.ownerId == botB.botOwnerId) ownedB++;
+
+            if (previousCellOwners.TryGetValue(cell.coord, out int prevOwner))
+            {
+                if (prevOwner != 0 && cell.ownerId != 0 && prevOwner != cell.ownerId)
+                    currentMatchReconquers++;
+            }
+            previousCellOwners[cell.coord] = cell.ownerId;
         }
 
         if (totalLand > 0)
         {
             float pctA = (float)ownedA / totalLand;
             float pctB = (float)ownedB / totalLand;
-            currentMatchTerritorialImbalanceSum += Mathf.Abs(pctA - pctB);
+            float currentTermImbalance = Mathf.Abs(pctA - pctB);
+            currentMatchTerritorialImbalanceSum += currentTermImbalance;
+
+            // Wyznaczanie najwyższego punktu kulminacyjnego przewagi (Peak)
+            if (currentTermImbalance > currentMatchPeakTerritorialDiff)
+                currentMatchPeakTerritorialDiff = currentTermImbalance;
+
+            // Procentowa dysproporcja ekonomiczna kont
+            float totalPop = botA.population + botB.population;
+            currentMatchGrowthImbalanceSum += totalPop > 0 ? (Mathf.Abs((float)botA.population - botB.population) / totalPop) * 100f : 0f;
+
+            // Procentowa dysproporcja siły militarnej
+            float totalArmy = totalArmyA + totalArmyB;
+            currentMatchMilitaryImbalanceSum += totalArmy > 0 ? (Mathf.Abs((float)totalArmyA - totalArmyB) / totalArmy) * 100f : 0f;
+
             currentMatchRecordedTurns++;
         }
     }
@@ -181,9 +232,14 @@ public class BotTurnManager : MonoBehaviour
         
         GameMetricsCollector.SaveGameReport(currentGlobalTurnCount, maxTurnsCap, botA, botB, winnerId);
 
-        // Zapisz dane z pojedynczego meczu do list zbiorczych pod koniec gry
         float matchAvgTerritorialImbalance = currentMatchRecordedTurns > 0 ? currentMatchTerritorialImbalanceSum / currentMatchRecordedTurns : 0f;
         batchTerritorialImbalances.Add(matchAvgTerritorialImbalance);
+
+        float matchAvgGrowthImbalance = currentMatchRecordedTurns > 0 ? currentMatchGrowthImbalanceSum / currentMatchRecordedTurns : 0f;
+        batchGrowthImbalances.Add(matchAvgGrowthImbalance);
+
+        float matchAvgMilitaryImbalance = currentMatchRecordedTurns > 0 ? currentMatchMilitaryImbalanceSum / currentMatchRecordedTurns : 0f;
+        batchMilitaryImbalances.Add(matchAvgMilitaryImbalance);
 
         float lengthPct = ((float)currentGlobalTurnCount / maxTurnsCap) * 100f;
         batchGameLengths.Add(lengthPct);
@@ -197,6 +253,11 @@ public class BotTurnManager : MonoBehaviour
         }
         float conqRate = totalLand > 0 ? ((float)finalCaptured / totalLand) * 100f : 0f;
         batchConqueringRates.Add(conqRate);
+
+        float reconqRate = totalLand > 0 ? ((float)currentMatchReconquers / totalLand) * 100f : 0f;
+        batchReconqueringRates.Add(reconqRate);
+
+        batchPeakDifferences.Add(currentMatchPeakTerritorialDiff * 100f);
 
         if (executionMode == GameExecutionMode.RealTime)
         {
@@ -228,17 +289,24 @@ public class BotTurnManager : MonoBehaviour
         batchTerritorialImbalances.Clear();
         batchGameLengths.Clear();
         batchConqueringRates.Clear();
+        batchGrowthImbalances.Clear();
+        batchMilitaryImbalances.Clear();
+        batchReconqueringRates.Clear();
+        batchPeakDifferences.Clear();
 
         for (currentBatchIndex = 1; currentBatchIndex <= batchSimulationCount; currentBatchIndex++)
         {
             currentMatchTerritorialImbalanceSum = 0f;
             currentMatchRecordedTurns = 0;
-
-            // FIX: Jawne wymuszenie czyszczenia i nowej generacji struktur lądu
+            currentMatchGrowthImbalanceSum = 0f;
+            currentMatchMilitaryImbalanceSum = 0f;
+            currentMatchReconquers = 0;
+            currentMatchPeakTerritorialDiff = 0f;
+            previousCellOwners.Clear();
+            
             mapGenerator.RerunMapGeneration();
             yield return null; 
-
-            // FIX: Jawne wyczyszczenie pamięci, list, liczników i usunięcie starych klonów jednostek bota
+            
             botA.ResetBotState();
             botB.ResetBotState();
             yield return null;
@@ -260,6 +328,10 @@ public class BotTurnManager : MonoBehaviour
         finalJsonReport.avgTerritorialImbalance = CalculateAverage(batchTerritorialImbalances);
         finalJsonReport.gameLength = CalculateAverage(batchGameLengths);
         finalJsonReport.conqueringRate = CalculateAverage(batchConqueringRates);
+        finalJsonReport.avgGrowthImbalance = CalculateAverage(batchGrowthImbalances);
+        finalJsonReport.avgMilitaryImbalance = CalculateAverage(batchMilitaryImbalances);
+        finalJsonReport.reconqueringRate = CalculateAverage(batchReconqueringRates);
+        finalJsonReport.peakDifferences = CalculateAverage(batchPeakDifferences);
 
         string outputPath = Path.Combine(Directory.GetCurrentDirectory(), "metrics_output.json");
         string jsonOutputText = JsonUtility.ToJson(finalJsonReport, true);
