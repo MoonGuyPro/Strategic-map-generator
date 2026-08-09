@@ -105,6 +105,15 @@ public class BotTurnManager : MonoBehaviour
 
     void StartSingleRealTimeGame()
     {
+        ClearBatchLists();
+        currentMatchTerritorialImbalanceSum = 0f;
+        currentMatchRecordedTurns = 0;
+        currentMatchGrowthImbalanceSum = 0f;
+        currentMatchMilitaryImbalanceSum = 0f;
+        currentMatchReconquers = 0;
+        currentMatchPeakTerritorialDiff = 0f;
+        previousCellOwners.Clear();
+
         currentGlobalTurnCount = 0;
         gameOver = false;
         GameMetricsCollector.Reset(mapGenerator);
@@ -262,6 +271,9 @@ public class BotTurnManager : MonoBehaviour
 
         if (executionMode == GameExecutionMode.RealTime)
         {
+            // Osobny plik, zeby podglad w edytorze nie nadpisal wynikow petli Pythona
+            SaveMetricsJson("metrics_output_realtime.json");
+
             botA.enabled = false;
             botB.enabled = false;
             this.enabled = false;
@@ -287,13 +299,7 @@ public class BotTurnManager : MonoBehaviour
             Debug.LogWarning($"=== [UNITY SUCCESS] Wczytano JSON: SpawnsDist={recipe.minSpawnDistance}, PopMax={recipe.population_max}, UnitCost={recipe.populationToCreateNewUnit}");
         }
 
-        batchTerritorialImbalances.Clear();
-        batchGameLengths.Clear();
-        batchConqueringRates.Clear();
-        batchGrowthImbalances.Clear();
-        batchMilitaryImbalances.Clear();
-        batchReconqueringRates.Clear();
-        batchPeakDifferences.Clear();
+        ClearBatchLists();
 
         for (currentBatchIndex = 1; currentBatchIndex <= batchSimulationCount; currentBatchIndex++)
         {
@@ -325,25 +331,40 @@ public class BotTurnManager : MonoBehaviour
             Debug.Log($"Ukonczono symulacje meczu nr: {currentBatchIndex} / {batchSimulationCount}");
         }
 
-        PythonOutputMetrics finalJsonReport = new PythonOutputMetrics();
-        finalJsonReport.avgTerritorialImbalance = CalculateAverage(batchTerritorialImbalances);
-        finalJsonReport.gameLength = CalculateAverage(batchGameLengths);
-        finalJsonReport.conqueringRate = CalculateAverage(batchConqueringRates);
-        finalJsonReport.avgGrowthImbalance = CalculateAverage(batchGrowthImbalances);
-        finalJsonReport.avgMilitaryImbalance = CalculateAverage(batchMilitaryImbalances);
-        finalJsonReport.reconqueringRate = CalculateAverage(batchReconqueringRates);
-        finalJsonReport.peakDifferences = CalculateAverage(batchPeakDifferences);
-
-        string outputPath = Path.Combine(Directory.GetCurrentDirectory(), "metrics_output.json");
-        string jsonOutputText = JsonUtility.ToJson(finalJsonReport, true);
-        File.WriteAllText(outputPath, jsonOutputText);
-
-        Debug.LogError("=== [UNITY SUCCESS] ZAPISANO PLIK METRICS_OUTPUT.JSON DLA PYTHONA ===");
+        SaveMetricsJson("metrics_output.json");
 
         if (System.Environment.CommandLine.Contains("-batchmode"))
             UnityEditor.EditorApplication.Exit(0); 
         else
             UnityEditor.EditorApplication.isPlaying = false;
+    }
+
+    void ClearBatchLists()
+    {
+        batchTerritorialImbalances.Clear();
+        batchGameLengths.Clear();
+        batchConqueringRates.Clear();
+        batchGrowthImbalances.Clear();
+        batchMilitaryImbalances.Clear();
+        batchReconqueringRates.Clear();
+        batchPeakDifferences.Clear();
+    }
+
+    void SaveMetricsJson(string fileName)
+    {
+        PythonOutputMetrics report = new PythonOutputMetrics();
+        report.avgTerritorialImbalance = CalculateAverage(batchTerritorialImbalances);
+        report.gameLength = CalculateAverage(batchGameLengths);
+        report.conqueringRate = CalculateAverage(batchConqueringRates);
+        report.avgGrowthImbalance = CalculateAverage(batchGrowthImbalances);
+        report.avgMilitaryImbalance = CalculateAverage(batchMilitaryImbalances);
+        report.reconqueringRate = CalculateAverage(batchReconqueringRates);
+        report.peakDifferences = CalculateAverage(batchPeakDifferences);
+
+        string outputPath = Path.Combine(Directory.GetCurrentDirectory(), fileName);
+        File.WriteAllText(outputPath, JsonUtility.ToJson(report, true));
+
+        Debug.LogError($"=== [UNITY SUCCESS] ZAPISANO PLIK {fileName.ToUpper()} ===");
     }
 
     private float CalculateAverage(List<float> list)

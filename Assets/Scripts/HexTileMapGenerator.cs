@@ -11,22 +11,21 @@ public class HexMapGenerator : MonoBehaviour
     public TileBase spawnTile;
 
     [Header("Populacja")]
-    // Nieuzywane przy generowaniu - zostawione dla zgodnosci sceny
-    public int population_min = 11;
     // Najwyzszy prog populacji; pozostale progi to jego rowne czesci
     public int population_max = 51;
 
     private const int PopulationTierCount = 5;
 
-    [Header("Kopalnie")]
+    /*[Header("Kopalnie")]
     public TileBase mineTile;
-    public int mineCount = 5;
+    public int mineCount = 5;*/
 
     [Header("Rozmiar mapy")]
     public int width = 20;
     public int height = 20;
 
     [Range(0f, 1f)]
+    [Tooltip("Udzial pol wodnych w calej planszy. Liczba wody = round(waterProbability * width * height), np. 0.1 -> dokladnie 40 pol z 400. Nie jest to juz szansa losowana per pole.")]
     public float waterProbability = 0.2f;
 
     [Header("Spawny graczy")]
@@ -54,7 +53,7 @@ public class HexMapGenerator : MonoBehaviour
             Debug.LogError("HexMapGenerator: tilemap nie jest przypisana!");
             return;
         }
-        if (grassTile == null || waterTile == null || spawnTile == null || mineTile == null)
+        if (grassTile == null || waterTile == null || spawnTile == null )
         {
             Debug.LogError("HexMapGenerator: nie wszystkie TileBase s� przypisane (grass/water/spawn/mine)!");
             return;
@@ -196,53 +195,6 @@ public class HexMapGenerator : MonoBehaviour
         tilemap.SetTile(spawn2.coord, spawnTile);
 
         Debug.Log($"Spawn1: {spawn1.coord}, Spawn2: {spawn2.coord}, dist = {HexDistanceOddR(spawn1.coord, spawn2.coord)}");
-    }
-
-
-    // ------------------------------------------------------------
-    // GENEROWANIE KOPALNI
-    // ------------------------------------------------------------
-    void GenerateMines()
-    {
-        // pola zakazane dla kopalni: spawn + s�siedzi spawn�w
-        HashSet<Vector3Int> forbidden = BuildForbiddenMineCells();
-
-        // kandydaci: l�d, przechodnie, nie-spawn, bez kopalni, nie w forbidden
-        List<HexCell> candidates = new List<HexCell>();
-        foreach (var kvp in cells)
-        {
-            HexCell cell = kvp.Value;
-
-            if (!cell.passable || cell.isWater) continue;
-            if (cell.isSpawn) continue;
-            if (cell.hasMine) continue;
-            if (forbidden.Contains(cell.coord)) continue;
-
-            candidates.Add(cell);
-        }
-
-        if (candidates.Count == 0) return;
-
-        // �eby by�o stabilniej: losowo tasujemy i idziemy po kolei
-        Shuffle(candidates);
-
-        int placed = 0;
-
-        for (int i = 0; i < candidates.Count && placed < mineCount; i++)
-        {
-            HexCell cell = candidates[i];
-
-            // warunek: �aden s�siad nie ma kopalni
-            if (!CanPlaceMineHere(cell.coord))
-                continue;
-
-            cell.hasMine = true;
-            tilemap.SetTile(cell.coord, mineTile);
-            placed++;
-        }
-
-        if (placed < mineCount)
-            Debug.LogWarning($"Nie uda�o si� postawi� wszystkich kopalni. Postawiono {placed}/{mineCount} (za ma�o miejsca przez ograniczenia).");
     }
 
 

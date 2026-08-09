@@ -204,14 +204,14 @@ MonoBehaviour:
   grassTile: {fileID: 11400000, guid: 0f7be247a798aed4e8f4f4b80d53e196, type: 2}
   waterTile: {fileID: 11400000, guid: 8159beeb24e86ef48af9c5d32499d627, type: 2}
   spawnTile: {fileID: 11400000, guid: 3a55a6ef722978149a260ffb86757e3c, type: 2}
-  population_min: 11
-  population_max: 51
+  population_min: 10
+  population_max: 65
   mineTile: {fileID: 11400000, guid: 9e5cd1888a26c634c8f3984b2719f3dc, type: 2}
   mineCount: 5
   width: 20
   height: 20
   waterProbability: 0.1
-  minSpawnDistance: 20
+  minSpawnDistance: 12
   debugCells: []
   spawnPosPlayer1: {x: 0, y: 0, z: 0}
   spawnPosPlayer2: {x: 0, y: 0, z: 0}
@@ -679,7 +679,7 @@ MonoBehaviour:
   botTile: {fileID: 11400000, guid: 2ce586f732854a9418012b73c4033288, type: 2}
   population: 0
   populationPerCapture: 10
-  populationToCreateNewUnit: 600
+  populationToCreateNewUnit: 700
   baseArmyBonus: 100
   maxArmyTokens: 6
   armyTokenPrefab: {fileID: 9127385153527895614, guid: 68e25fa859edc3e4a9f15dfed67aa23c, type: 3}
@@ -745,7 +745,7 @@ MonoBehaviour:
   botTile: {fileID: 11400000, guid: f570949cdbe5cee43a95ac972755bcce, type: 2}
   population: 0
   populationPerCapture: 10
-  populationToCreateNewUnit: 600
+  populationToCreateNewUnit: 700
   baseArmyBonus: 100
   maxArmyTokens: 6
   armyTokenPrefab: {fileID: 9127385153527895614, guid: 68e25fa859edc3e4a9f15dfed67aa23c, type: 3}
