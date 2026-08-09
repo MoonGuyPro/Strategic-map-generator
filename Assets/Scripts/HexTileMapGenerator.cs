@@ -11,8 +11,12 @@ public class HexMapGenerator : MonoBehaviour
     public TileBase spawnTile;
 
     [Header("Populacja")]
+    // Nieuzywane przy generowaniu - zostawione dla zgodnosci sceny
     public int population_min = 11;
+    // Najwyzszy prog populacji; pozostale progi to jego rowne czesci
     public int population_max = 51;
+
+    private const int PopulationTierCount = 5;
 
     [Header("Kopalnie")]
     public TileBase mineTile;
@@ -70,32 +74,62 @@ public class HexMapGenerator : MonoBehaviour
         cells.Clear();
         tilemap.ClearAllTiles();
 
+        List<Vector3Int> positions = new List<Vector3Int>(width * height);
         for (int x = 0; x < width; x++)
-        {
             for (int y = 0; y < height; y++)
+                positions.Add(new Vector3Int(x, y, 0));
+
+        // Dokladnie waterProbability * liczba pol trafia pod wode - liczba ladu jest stala
+        int waterCount = Mathf.Clamp(Mathf.RoundToInt(waterProbability * positions.Count), 0, positions.Count);
+        Shuffle(positions);
+
+        List<HexCell> landCells = new List<HexCell>();
+
+        for (int i = 0; i < positions.Count; i++)
+        {
+            Vector3Int pos = positions[i];
+            bool isWater = i < waterCount;
+            tilemap.SetTile(pos, isWater ? waterTile : grassTile);
+
+            HexCell cell = new HexCell
             {
-                Vector3Int pos = new Vector3Int(x, y, 0);
+                coord = pos,
+                isWater = isWater,
+                passable = !isWater,
+                ownerId = 0,           // 0 = neutral
+                hasMine = false,
+                isSpawn = false,
+                populationNumber = 0   // woda zostaje na 0 i nie wchodzi do puli progow
+            };
 
-                bool isWater = Random.value < waterProbability;
-                TileBase tileToPlace = isWater ? waterTile : grassTile;
-                tilemap.SetTile(pos, tileToPlace);
-
-                int population = isWater ? 0 : Random.Range(population_min, population_max); // 10�100
-
-                HexCell cell = new HexCell
-                {
-                    coord = pos,
-                    isWater = isWater,
-                    passable = !isWater,
-                    ownerId = 0,           // 0 = neutral
-                    hasMine = false,
-                    isSpawn = false,
-                    populationNumber = population
-                };
-
-                cells[pos] = cell;
-            }
+            cells[pos] = cell;
+            if (!isWater) landCells.Add(cell);
         }
+
+        AssignPopulationTiers(landCells);
+    }
+
+    // Piec progow populacji jako rowne czesci population_max, kazdy na 20% pol ladowych
+    int[] BuildPopulationTiers()
+    {
+        int[] tiers = new int[PopulationTierCount];
+        for (int i = 0; i < PopulationTierCount; i++)
+            tiers[i] = Mathf.Max(1, Mathf.RoundToInt(population_max * (i + 1) / (float)PopulationTierCount));
+        return tiers;
+    }
+
+    void AssignPopulationTiers(List<HexCell> landCells)
+    {
+        int[] tiers = BuildPopulationTiers();
+
+        List<int> values = new List<int>(landCells.Count);
+        for (int i = 0; i < landCells.Count; i++)
+            values.Add(tiers[i % tiers.Length]);
+
+        Shuffle(values);
+
+        for (int i = 0; i < landCells.Count; i++)
+            landCells[i].populationNumber = values[i];
     }
 
     // ------------------------------------------------------------

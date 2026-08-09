@@ -153,7 +153,7 @@ unity_cmd = [
     "-executeMethod", "BatchRunner.RunSim"
 ]
 
-print("--- [PYTHON] Uruchamianie ukrytej symulacji w Unity (10 meczów)... Proszę czekać.")
+print("--- [PYTHON] Uruchamianie ukrytej symulacji w Unity (20 meczów)... Proszę czekać.")
 subprocess.run(unity_cmd, check=True)
 print("--- [PYTHON] Unity zakończyło pracę i przekazało kontrolę.")
 
