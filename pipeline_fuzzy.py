@@ -51,53 +51,73 @@ for out in [balance, dynamism]:
 # 2. IMPLEMENTACJA TRÓJWYMIAROWYCH BAZ REGUŁ DECYZYJNYCH
 # ============================================================
 
-balance_rules = [
-    # Stan idealny - wszystko równe
-    ctrl.Rule(term_imbalance['low'] & growth_imbalance['low'] & military_imbalance['low'], balance['high']),
+LVL = {'L': 'low', 'M': 'medium', 'H': 'high'}
 
-    # Stan lekko zachwiany (jeden element ucieka w medium) -> ocena wysoka/średnia
-    ctrl.Rule(term_imbalance['low'] & growth_imbalance['low'] & military_imbalance['medium'], balance['medium']),
-    ctrl.Rule(term_imbalance['low'] & growth_imbalance['medium'] & military_imbalance['low'], balance['high']),
-    # terytorium ważniejsze niż eko!
-    ctrl.Rule(term_imbalance['medium'] & growth_imbalance['low'] & military_imbalance['low'], balance['medium']),
+# Tabela decyzyjna BALANSU: (Territorial, Growth, Military) -> ocena. Komplet 27 kombinacji.
+BALANCE_TABLE = {
+    ('L', 'L', 'L'): 'high',
+    ('L', 'M', 'L'): 'high',
+    ('L', 'H', 'L'): 'medium',
+    ('M', 'L', 'L'): 'medium',
+    ('M', 'M', 'L'): 'medium',
+    ('M', 'H', 'L'): 'medium',
+    ('H', 'L', 'L'): 'medium',
+    ('H', 'M', 'L'): 'medium',
+    ('H', 'H', 'L'): 'low',
 
-    # Stan stabilnej asymetrii
-    ctrl.Rule(term_imbalance['medium'] & growth_imbalance['medium'] & military_imbalance['medium'], balance['medium']),
-    ctrl.Rule(term_imbalance['high'] & growth_imbalance['low'] & military_imbalance['low'], balance['medium']),
+    ('L', 'L', 'M'): 'medium',
+    ('L', 'M', 'M'): 'medium',
+    ('L', 'H', 'M'): 'medium',
+    ('M', 'L', 'M'): 'medium',
+    ('M', 'M', 'M'): 'medium',
+    ('M', 'H', 'M'): 'low',
+    ('H', 'L', 'M'): 'medium',
+    ('H', 'M', 'M'): 'low',
+    ('H', 'H', 'M'): 'low',
 
-    # Krytyczne dysproporcje (dwa lub więcej elementów na HIGH) -> ocena LOW
-    ctrl.Rule(term_imbalance['low'] & growth_imbalance['high'] & military_imbalance['high'], balance['low']),
-    ctrl.Rule(term_imbalance['medium'] & growth_imbalance['high'] & military_imbalance['high'], balance['low']),
-    ctrl.Rule(term_imbalance['high'] & growth_imbalance['high'] & military_imbalance['high'], balance['low']),
+    # Reguła nadrzędna: potężna dysproporcja wojskowa zawsze niszczy balans
+    ('L', 'L', 'H'): 'low',
+    ('L', 'M', 'H'): 'low',
+    ('L', 'H', 'H'): 'low',
+    ('M', 'L', 'H'): 'low',
+    ('M', 'M', 'H'): 'low',
+    ('M', 'H', 'H'): 'low',
+    ('H', 'L', 'H'): 'low',
+    ('H', 'M', 'H'): 'low',
+    ('H', 'H', 'H'): 'low',
+}
 
-    # --- POPRAWKA GRADIENTU: Gdy gospodarka ucieka w HIGH, ale terytorium i wojsko są świetne (LOW)
-    # Jeśli terytorium jest skrajnie niskie (bliskie 0), ocena powinna ciągnąć ku HIGH, a nie stać betonowo na 0.5
-    ctrl.Rule(term_imbalance['low'] & growth_imbalance['high'] & military_imbalance['low'], balance['medium']),
-    ctrl.Rule(term_imbalance['low'] & growth_imbalance['medium'] & military_imbalance['medium'], balance['medium']),
+# Tabela decyzyjna DYNAMIZMU: (Conquering, Reconquering, Peaks) -> ocena. Komplet 12 kombinacji.
+DYNAMISM_TABLE = {
+    ('L', 'L', 'L'): 'low',
+    ('L', 'M', 'L'): 'medium',
+    ('L', 'H', 'L'): 'medium',
+    ('L', 'L', 'H'): 'low',
+    ('L', 'M', 'H'): 'medium',
+    ('L', 'H', 'H'): 'medium',
 
-    # Reguła nadrzędna: totalna dominacja armii zawsze niszczy balans
-    ctrl.Rule(military_imbalance['high'], balance['low'])
-]
+    ('H', 'L', 'L'): 'low',
+    ('H', 'M', 'L'): 'medium',
+    ('H', 'H', 'L'): 'high',
+    ('H', 'L', 'H'): 'medium',
+    ('H', 'M', 'H'): 'high',
+    ('H', 'H', 'H'): 'high',
+}
 
-dynamism_rules = [
-    # Całkowity paraliż
-    ctrl.Rule(conq_rate['low'] & reconq_rate['low'] & peaks['low'], dynamism['low']),
-    ctrl.Rule(conq_rate['low'] & reconq_rate['low'] & peaks['high'], dynamism['low']),
 
-    # Wojna pozycyjna / Lokalne starcia
-    ctrl.Rule(conq_rate['low'] & (reconq_rate['high'] | reconq_rate['medium']) & peaks['low'], dynamism['medium']),
-    ctrl.Rule(conq_rate['low'] & (reconq_rate['high'] | reconq_rate['medium']) & peaks['high'], dynamism['medium']),
+def _build_rules(table, ant_a, ant_b, ant_c, consequent, expected_count):
+    """Zamienia tabelę decyzyjną na listę reguł rozmytych i pilnuje jej kompletności."""
+    if len(table) != expected_count:
+        raise ValueError(f"Baza reguł niekompletna: {len(table)}/{expected_count} kombinacji.")
+    return [
+        ctrl.Rule(ant_a[LVL[a]] & ant_b[LVL[b]] & ant_c[LVL[c]], consequent[verdict])
+        for (a, b, c), verdict in table.items()
+    ]
 
-    # Pusty podbój lub szybki stomp
-    ctrl.Rule(conq_rate['high'] & reconq_rate['low'] & peaks['low'], dynamism['low']),
-    ctrl.Rule(conq_rate['high'] & reconq_rate['low'] & peaks['high'], dynamism['medium']),
 
-    ctrl.Rule(conq_rate['high'] & reconq_rate['high'] & peaks['low'], dynamism['high']),
-    ctrl.Rule(conq_rate['high'] & reconq_rate['medium'] & peaks['low'], dynamism['medium']),
-
-    # Idealny dynamizm
-    ctrl.Rule(conq_rate['high'] & (reconq_rate['high'] | reconq_rate['medium']) & peaks['high'], dynamism['high'])
-]
+# conq_rate i peaks mają tylko zbiory LOW/HIGH, więc 2 * 3 * 2 = 12 kombinacji
+balance_rules = _build_rules(BALANCE_TABLE, term_imbalance, growth_imbalance, military_imbalance, balance, 27)
+dynamism_rules = _build_rules(DYNAMISM_TABLE, conq_rate, reconq_rate, peaks, dynamism, 12)
 
 # Kompilacja kontrolerów wnioskowania
 balance_ctrl = ctrl.ControlSystem(balance_rules)
