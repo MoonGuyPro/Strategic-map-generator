@@ -127,74 +127,118 @@ balance_sim = ctrl.ControlSystemSimulation(balance_ctrl)
 dynamism_sim = ctrl.ControlSystemSimulation(dynamism_ctrl)
 
 # ============================================================
-# 3. GENEROWANIE PRZEPISU MAPY I URUCHOMIENIE UNITY (BEZ ZMIAN)
+# 3. URUCHOMIENIE UNITY - CALA POPULACJA W JEDNYM STARCIE
 # ============================================================
 
-test_recipe = {
-    "minSpawnDistance": 12,
-    "population_max": 65,
-    "populationToCreateNewUnit": 700
-}
+UNITY_EXE = r"D:\Unity\6000.2.14f1\Editor\Unity.com"
+PROJECT_PATH = os.getcwd()
+INPUT_FILE = 'map_input.json'
+OUTPUT_FILE = 'metrics_output.json'
+LOG_FILE = 'unity_batch_log.txt'
 
-with open('map_input.json', 'w') as f:
-    json.dump(test_recipe, f, indent=4)
+MECZOW_NA_CHROMOSOM = 20      # musi odpowiadac batchSimulationCount w scenie Unity
+SEKUND_NA_MECZ = 20           # zapas czasu przy wyznaczaniu timeoutu
+NARZUT_STARTU_S = 300         # ladowanie edytora i import assetow
+MIN_GAME_LENGTH_PCT = 15.0    # ponizej tej dlugosci mecz uznajemy za rozstrzygniety kula snieznej
 
-print(f"--- [PYTHON] Zapisano przepis mapy do pliku JSON.")
-
-unity_com = r"D:\Unity\6000.2.14f1\Editor\Unity.com"
-project_path = os.getcwd()
-
-unity_cmd = [
-    unity_com,
+# Unity celowo NIE dostaje flagi -quit: BatchRunner.RunSim jedynie wlacza tryb gry i natychmiast
+# wraca, wiec -quit zamknalby edytor jeszcze przed startem symulacji. Proces konczy sie przez
+# EditorApplication.Exit(0) po zapisaniu wynikow, a timeout ponizej jest zabezpieczeniem.
+UNITY_CMD = [
+    UNITY_EXE,
     "-batchmode",
     "-nographics",
-    "-projectPath", project_path,
-    "-logFile", "unity_batch_log.txt",
-    "-executeMethod", "BatchRunner.RunSim"
+    "-projectPath", PROJECT_PATH,
+    "-logFile", LOG_FILE,
+    "-executeMethod", "BatchRunner.RunSim",
 ]
 
-print("--- [PYTHON] Uruchamianie ukrytej symulacji w Unity (20 meczów)... Proszę czekać.")
-subprocess.run(unity_cmd, check=True)
-print("--- [PYTHON] Unity zakończyło pracę i przekazało kontrolę.")
+
+def evaluate_population(recipes, timeout_s=None):
+    """Ocenia liste chromosomow w JEDNYM uruchomieniu Unity. Zwraca liste slownikow metryk."""
+    if not recipes:
+        return []
+
+    with open(INPUT_FILE, 'w') as f:
+        json.dump({"recipes": recipes}, f, indent=4)
+
+    # Kasujemy poprzedni wynik. Bez tego awaria Unity zostawilaby stary plik,
+    # ktory zostalby po cichu odczytany jako poprawny pomiar tej generacji.
+    if os.path.exists(OUTPUT_FILE):
+        os.remove(OUTPUT_FILE)
+
+    if timeout_s is None:
+        timeout_s = NARZUT_STARTU_S + SEKUND_NA_MECZ * MECZOW_NA_CHROMOSOM * len(recipes)
+
+    print(f"--- [PYTHON] Unity: {len(recipes)} chromosomow x {MECZOW_NA_CHROMOSOM} meczow, "
+          f"limit czasu {timeout_s} s. Prosze czekac.")
+
+    try:
+        subprocess.run(UNITY_CMD, check=True, timeout=timeout_s)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"Unity nie zakonczylo pracy w {timeout_s} s. Sprawdz {LOG_FILE}.")
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Unity zakonczylo sie kodem {e.returncode}. Sprawdz {LOG_FILE}.")
+
+    if not os.path.exists(OUTPUT_FILE):
+        raise RuntimeError(f"Unity nie zapisalo {OUTPUT_FILE}. Sprawdz {LOG_FILE}.")
+
+    with open(OUTPUT_FILE, 'r') as f:
+        data = json.load(f)
+
+    results = data.get("results")
+    if results is None:
+        raise RuntimeError(f"{OUTPUT_FILE} nie zawiera klucza 'results'.")
+    if len(results) != len(recipes):
+        raise RuntimeError(f"Unity zwrocilo {len(results)} wynikow zamiast {len(recipes)}.")
+
+    print(f"--- [PYTHON] Odebrano {len(results)} wynikow.")
+    return results
+
+
+def score(metrics):
+    """Zamienia surowe metryki na pare ocen (balans, dynamizm) w skali 0-1."""
+    if metrics["gameLength"] < MIN_GAME_LENGTH_PCT:
+        return 0.0, 0.0
+
+    # avgTerritorialImbalance przychodzi jako ulamek 0-1, pozostale metryki juz jako procenty
+    balance_sim.input['term_imbalance'] = metrics["avgTerritorialImbalance"] * 100.0
+    balance_sim.input['growth_imbalance'] = metrics["avgGrowthImbalance"]
+    balance_sim.input['military_imbalance'] = metrics["avgMilitaryImbalance"]
+    balance_sim.compute()
+
+    dynamism_sim.input['conq_rate'] = metrics["conqueringRate"]
+    dynamism_sim.input['reconq_rate'] = metrics["reconqueringRate"]
+    dynamism_sim.input['peaks'] = metrics["peakDifferences"]
+    dynamism_sim.compute()
+
+    return balance_sim.output['balance'], dynamism_sim.output['dynamism']
+
 
 # ============================================================
-# 4. DYNAMICZNY ODCZYT I WNIOSKOWANIE ROZMYTE NA PEŁNYCH METRYKACH
+# 4. PRZYKLADOWE WYWOLANIE (miejsce na petle NSGA-II)
 # ============================================================
 
-if os.path.exists('metrics_output.json'):
-    with open('metrics_output.json', 'r') as f:
-        metrics = json.load(f)
+if __name__ == '__main__':
+    populacja = [
+        {"minSpawnDistance": 12, "population_max": 65, "populationToCreateNewUnit": 700},
+        {"minSpawnDistance": 8, "population_max": 40, "populationToCreateNewUnit": 500},
+        {"minSpawnDistance": 16, "population_max": 90, "populationToCreateNewUnit": 900},
+    ]
 
-    print("\n--- [PYTHON] Surowe metryki odebrane z Unity:")
-    print(json.dumps(metrics, indent=4))
+    wyniki = evaluate_population(populacja)
 
-    raw_game_length = metrics["gameLength"]
-
-    # Sprawdzenie reguły nadrzędnej długości meczu (zabezpieczenie przed kuli śnieżnej)
-    if raw_game_length < 15.0:
-        final_balance = 0.0
-        final_dynamism = 0.0
-        print("\n=== [WYNIK OCENY] Gra zbyt krótka! Mapa zdyskwalifikowana (Efekt Kuli Śnieżnej). ===")
-    else:
-        # WSTRZYKNIĘCIE METRYK DO KONTROLERA BALANSU
-        balance_sim.input['term_imbalance'] = metrics["avgTerritorialImbalance"] * 100.0
-        balance_sim.input['growth_imbalance'] = metrics["avgGrowthImbalance"]
-        balance_sim.input['military_imbalance'] = metrics["avgMilitaryImbalance"]
-        balance_sim.compute()
-        final_balance = balance_sim.output['balance']
-
-        # WSTRZYKNIĘCIE METRYK DO KONTROLERA DYNAMIZMU
-        dynamism_sim.input['conq_rate'] = metrics["conqueringRate"]
-        dynamism_sim.input['reconq_rate'] = metrics["reconqueringRate"]
-        dynamism_sim.input['peaks'] = metrics["peakDifferences"]
-        dynamism_sim.compute()
-        final_dynamism = dynamism_sim.output['dynamism']
-
-        print("\n==================================================")
-        print(f" FINALNA OCENA GRYWALNOŚCI MAPY (PEŁNY MODEL):")
-        print(f" -> Ostateczny BALANS mapy:   {final_balance:.4f} / 1.0000")
-        print(f" -> Ostateczny DYNAMIZM mapy: {final_dynamism:.4f} / 1.0000")
-        print("==================================================")
-
-else:
-    print("\n[BŁĄD] Plik metrics_output.json nie został wygenerowany przez Unity!")
+    print()
+    print("=" * 96)
+    print(f"{'#':>2} {'spawnDist':>10} {'popMax':>7} {'unitCost':>9} "
+          f"{'teryt%':>8} {'growth%':>8} {'mil%':>7} {'conq%':>7} {'reconq%':>8} "
+          f"{'BALANS':>8} {'DYNAMIZM':>9}")
+    print("=" * 96)
+    for i, (przepis, m) in enumerate(zip(populacja, wyniki), 1):
+        b, d = score(m)
+        print(f"{i:>2} {przepis['minSpawnDistance']:>10} {przepis['population_max']:>7} "
+              f"{przepis['populationToCreateNewUnit']:>9} "
+              f"{m['avgTerritorialImbalance'] * 100:>8.1f} {m['avgGrowthImbalance']:>8.1f} "
+              f"{m['avgMilitaryImbalance']:>7.1f} {m['conqueringRate']:>7.1f} "
+              f"{m['reconqueringRate']:>8.1f} {b:>8.4f} {d:>9.4f}")
+    print("=" * 96)

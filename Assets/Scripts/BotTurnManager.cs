@@ -41,6 +41,18 @@ public class BotTurnManager : MonoBehaviour
     }
 
     [System.Serializable]
+    private class PythonInputBatch
+    {
+        public PythonInputRecipe[] recipes;
+    }
+
+    [System.Serializable]
+    private class PythonOutputBatch
+    {
+        public PythonOutputMetrics[] results;
+    }
+
+    [System.Serializable]
     private class PythonOutputMetrics
     {
         public float avgTerritorialImbalance;
@@ -285,53 +297,50 @@ public class BotTurnManager : MonoBehaviour
     {
         Debug.LogWarning("=== [UNITY] URUCHOMIONO TRYB MASOWEJ SYMULACJI BATCH ===");
 
-        string inputPath = Path.Combine(Directory.GetCurrentDirectory(), "map_input.json");
-        if (File.Exists(inputPath))
+        PythonInputRecipe[] recipes = LoadRecipes();
+        PythonOutputMetrics[] results = new PythonOutputMetrics[recipes.Length];
+
+        for (int r = 0; r < recipes.Length; r++)
         {
-            string jsonText = File.ReadAllText(inputPath);
-            PythonInputRecipe recipe = JsonUtility.FromJson<PythonInputRecipe>(jsonText);
+            ApplyRecipe(recipes[r]);
+            Debug.LogWarning($"=== [UNITY] Chromosom {r + 1}/{recipes.Length}: SpawnsDist={recipes[r].minSpawnDistance}, PopMax={recipes[r].population_max}, UnitCost={recipes[r].populationToCreateNewUnit}");
 
-            mapGenerator.minSpawnDistance = recipe.minSpawnDistance;
-            mapGenerator.population_max = recipe.population_max;
-            botA.populationToCreateNewUnit = recipe.populationToCreateNewUnit;
-            botB.populationToCreateNewUnit = recipe.populationToCreateNewUnit;
+            ClearBatchLists();
 
-            Debug.LogWarning($"=== [UNITY SUCCESS] Wczytano JSON: SpawnsDist={recipe.minSpawnDistance}, PopMax={recipe.population_max}, UnitCost={recipe.populationToCreateNewUnit}");
-        }
-
-        ClearBatchLists();
-
-        for (currentBatchIndex = 1; currentBatchIndex <= batchSimulationCount; currentBatchIndex++)
-        {
-            currentMatchTerritorialImbalanceSum = 0f;
-            currentMatchRecordedTurns = 0;
-            currentMatchGrowthImbalanceSum = 0f;
-            currentMatchMilitaryImbalanceSum = 0f;
-            currentMatchReconquers = 0;
-            currentMatchPeakTerritorialDiff = 0f;
-            previousCellOwners.Clear();
-            
-            mapGenerator.RerunMapGeneration();
-            yield return null; 
-            
-            botA.ResetBotState();
-            botB.ResetBotState();
-            yield return null;
-
-            currentGlobalTurnCount = 0;
-            gameOver = false;
-            GameMetricsCollector.Reset(mapGenerator);
-            isATurn = randomizeFirstBot ? (Random.Range(0, 2) == 0) : true;
-
-            while (!gameOver && currentGlobalTurnCount < maxTurnsCap)
+            for (currentBatchIndex = 1; currentBatchIndex <= batchSimulationCount; currentBatchIndex++)
             {
-                ExecuteSingleBotTurn();
+                currentMatchTerritorialImbalanceSum = 0f;
+                currentMatchRecordedTurns = 0;
+                currentMatchGrowthImbalanceSum = 0f;
+                currentMatchMilitaryImbalanceSum = 0f;
+                currentMatchReconquers = 0;
+                currentMatchPeakTerritorialDiff = 0f;
+                previousCellOwners.Clear();
+
+                mapGenerator.RerunMapGeneration();
+                yield return null;
+
+                botA.ResetBotState();
+                botB.ResetBotState();
+                yield return null;
+
+                currentGlobalTurnCount = 0;
+                gameOver = false;
+                GameMetricsCollector.Reset(mapGenerator);
+                isATurn = randomizeFirstBot ? (Random.Range(0, 2) == 0) : true;
+
+                while (!gameOver && currentGlobalTurnCount < maxTurnsCap)
+                {
+                    ExecuteSingleBotTurn();
+                }
+
+                Debug.Log($"Chromosom {r + 1}/{recipes.Length}, mecz {currentBatchIndex}/{batchSimulationCount}");
             }
 
-            Debug.Log($"Ukonczono symulacje meczu nr: {currentBatchIndex} / {batchSimulationCount}");
+            results[r] = BuildMetrics();
         }
 
-        SaveMetricsJson("metrics_output.json");
+        SaveMetricsBatch("metrics_output.json", results);
 
         if (System.Environment.CommandLine.Contains("-batchmode"))
             UnityEditor.EditorApplication.Exit(0); 
@@ -350,7 +359,7 @@ public class BotTurnManager : MonoBehaviour
         batchPeakDifferences.Clear();
     }
 
-    void SaveMetricsJson(string fileName)
+    PythonOutputMetrics BuildMetrics()
     {
         PythonOutputMetrics report = new PythonOutputMetrics();
         report.avgTerritorialImbalance = CalculateAverage(batchTerritorialImbalances);
@@ -360,11 +369,64 @@ public class BotTurnManager : MonoBehaviour
         report.avgMilitaryImbalance = CalculateAverage(batchMilitaryImbalances);
         report.reconqueringRate = CalculateAverage(batchReconqueringRates);
         report.peakDifferences = CalculateAverage(batchPeakDifferences);
+        return report;
+    }
 
+    void SaveMetricsJson(string fileName)
+    {
         string outputPath = Path.Combine(Directory.GetCurrentDirectory(), fileName);
-        File.WriteAllText(outputPath, JsonUtility.ToJson(report, true));
-
+        File.WriteAllText(outputPath, JsonUtility.ToJson(BuildMetrics(), true));
         Debug.LogError($"=== [UNITY SUCCESS] ZAPISANO PLIK {fileName.ToUpper()} ===");
+    }
+
+    void SaveMetricsBatch(string fileName, PythonOutputMetrics[] results)
+    {
+        PythonOutputBatch batch = new PythonOutputBatch { results = results };
+        string outputPath = Path.Combine(Directory.GetCurrentDirectory(), fileName);
+        File.WriteAllText(outputPath, JsonUtility.ToJson(batch, true));
+        Debug.LogError($"=== [UNITY SUCCESS] ZAPISANO {results.Length} WYNIKOW DO {fileName.ToUpper()} ===");
+    }
+
+    void ApplyRecipe(PythonInputRecipe recipe)
+    {
+        mapGenerator.minSpawnDistance = recipe.minSpawnDistance;
+        mapGenerator.population_max = recipe.population_max;
+        botA.populationToCreateNewUnit = recipe.populationToCreateNewUnit;
+        botB.populationToCreateNewUnit = recipe.populationToCreateNewUnit;
+    }
+
+    PythonInputRecipe[] LoadRecipes()
+    {
+        string inputPath = Path.Combine(Directory.GetCurrentDirectory(), "map_input.json");
+        if (!File.Exists(inputPath))
+        {
+            Debug.LogWarning("=== [UNITY] Brak map_input.json - uzywam wartosci z Inspectora ===");
+            return new[] { CurrentRecipeFromInspector() };
+        }
+
+        string jsonText = File.ReadAllText(inputPath);
+
+        // Format docelowy: {"recipes":[...]}. Pojedynczy obiekt obslugiwany dla zgodnosci wstecz.
+        PythonInputBatch batch = JsonUtility.FromJson<PythonInputBatch>(jsonText);
+        if (batch != null && batch.recipes != null && batch.recipes.Length > 0)
+            return batch.recipes;
+
+        PythonInputRecipe single = JsonUtility.FromJson<PythonInputRecipe>(jsonText);
+        if (single != null && single.populationToCreateNewUnit > 0)
+            return new[] { single };
+
+        Debug.LogError("=== [UNITY] map_input.json ma nieznany format - uzywam wartosci z Inspectora ===");
+        return new[] { CurrentRecipeFromInspector() };
+    }
+
+    PythonInputRecipe CurrentRecipeFromInspector()
+    {
+        return new PythonInputRecipe
+        {
+            minSpawnDistance = mapGenerator.minSpawnDistance,
+            population_max = mapGenerator.population_max,
+            populationToCreateNewUnit = botA.populationToCreateNewUnit
+        };
     }
 
     private float CalculateAverage(List<float> list)
