@@ -15,7 +15,13 @@ growth_imbalance = ctrl.Antecedent(np.arange(0, 101, 1), 'growth_imbalance')
 military_imbalance = ctrl.Antecedent(np.arange(0, 101, 1), 'military_imbalance')
 
 # WEJŚCIA DLA KRYTERIUM DYNAMIZMU
-conq_rate = ctrl.Antecedent(np.arange(0, 101, 1), 'conq_rate')
+# conqueringRate NIE jest juz wejsciem - pelni role bramki poprawnosci, jak gameLength
+BATTLES_MAX = 200             # gorna granica uniwersum licznika bitew
+BATTLES_LOW_END = 20          # PROG TYMCZASOWY - do kalibracji na danych z pilotazu
+BATTLES_HIGH_START = 10       # PROG TYMCZASOWY
+BATTLES_HIGH_FULL = 30        # PROG TYMCZASOWY
+
+field_battles = ctrl.Antecedent(np.arange(0, BATTLES_MAX + 1, 1), 'field_battles')
 reconq_rate = ctrl.Antecedent(np.arange(0, 101, 1), 'reconq_rate')
 peaks = ctrl.Antecedent(np.arange(0, 101, 1), 'peaks')
 
@@ -30,8 +36,10 @@ for var in [term_imbalance, growth_imbalance, military_imbalance]:
     var['high'] = fuzz.trapmf(var.universe, [60, 80, 100, 100])
 
 # --- Definicja Funkcji Przynależności dla Metryk Dynamizmu ---
-conq_rate['low'] = fuzz.trimf(conq_rate.universe, [0, 0, 55])
-conq_rate['high'] = fuzz.trapmf(conq_rate.universe, [45, 75, 100, 100])
+# Im wiecej bitew polowych, tym dynamiczniejsza mapa
+field_battles['low'] = fuzz.trimf(field_battles.universe, [0, 0, BATTLES_LOW_END])
+field_battles['high'] = fuzz.trapmf(field_battles.universe,
+                                    [BATTLES_HIGH_START, BATTLES_HIGH_FULL, BATTLES_MAX, BATTLES_MAX])
 
 peaks['low'] = fuzz.trimf(peaks.universe, [0, 0, 55])
 peaks['high'] = fuzz.trapmf(peaks.universe, [45, 75, 100, 100])
@@ -87,16 +95,16 @@ BALANCE_TABLE = {
     ('H', 'H', 'H'): 'low',
 }
 
-# Tabela decyzyjna DYNAMIZMU: (Conquering, Reconquering, Peaks) -> ocena. Komplet 12 kombinacji.
+# Tabela decyzyjna DYNAMIZMU: (Bitwy polowe, Reconquering, Peaks) -> ocena. Komplet 12 kombinacji.
 DYNAMISM_TABLE = {
     ('L', 'L', 'L'): 'low',
-    ('L', 'M', 'L'): 'medium',
+    ('L', 'M', 'L'): 'low',
     ('L', 'H', 'L'): 'medium',
     ('L', 'L', 'H'): 'low',
     ('L', 'M', 'H'): 'medium',
     ('L', 'H', 'H'): 'medium',
 
-    ('H', 'L', 'L'): 'low',
+    ('H', 'L', 'L'): 'medium',
     ('H', 'M', 'L'): 'medium',
     ('H', 'H', 'L'): 'high',
     ('H', 'L', 'H'): 'medium',
@@ -115,9 +123,9 @@ def _build_rules(table, ant_a, ant_b, ant_c, consequent, expected_count):
     ]
 
 
-# conq_rate i peaks mają tylko zbiory LOW/HIGH, więc 2 * 3 * 2 = 12 kombinacji
+# field_battles i peaks mają tylko zbiory LOW/HIGH, więc 2 * 3 * 2 = 12 kombinacji
 balance_rules = _build_rules(BALANCE_TABLE, term_imbalance, growth_imbalance, military_imbalance, balance, 27)
-dynamism_rules = _build_rules(DYNAMISM_TABLE, conq_rate, reconq_rate, peaks, dynamism, 12)
+dynamism_rules = _build_rules(DYNAMISM_TABLE, field_battles, reconq_rate, peaks, dynamism, 12)
 
 # Kompilacja kontrolerów wnioskowania
 balance_ctrl = ctrl.ControlSystem(balance_rules)
@@ -140,6 +148,7 @@ MECZOW_NA_CHROMOSOM = 20      # musi odpowiadac batchSimulationCount w scenie Un
 SEKUND_NA_MECZ = 20           # zapas czasu przy wyznaczaniu timeoutu
 NARZUT_STARTU_S = 300         # ladowanie edytora i import assetow
 MIN_GAME_LENGTH_PCT = 15.0    # ponizej tej dlugosci mecz uznajemy za rozstrzygniety kula snieznej
+MIN_CONQUERING_PCT = 60.0     # ponizej tego mapa nie zostala zagospodarowana - wynik odrzucamy
 
 # Unity celowo NIE dostaje flagi -quit: BatchRunner.RunSim jedynie wlacza tryb gry i natychmiast
 # wraca, wiec -quit zamknalby edytor jeszcze przed startem symulacji. Proces konczy sie przez
@@ -198,7 +207,11 @@ def evaluate_population(recipes, timeout_s=None):
 
 def score(metrics):
     """Zamienia surowe metryki na pare ocen (balans, dynamizm) w skali 0-1."""
+    # Bramki poprawnosci. Krotka gra = rozstrzygniecie kula snieznej.
+    # Niski conqueringRate = mapa nie zostala zagospodarowana (gra urwana albo teren odciety).
     if metrics["gameLength"] < MIN_GAME_LENGTH_PCT:
+        return 0.0, 0.0
+    if metrics["conqueringRate"] < MIN_CONQUERING_PCT:
         return 0.0, 0.0
 
     # avgTerritorialImbalance przychodzi jako ulamek 0-1, pozostale metryki juz jako procenty
@@ -207,7 +220,7 @@ def score(metrics):
     balance_sim.input['military_imbalance'] = metrics["avgMilitaryImbalance"]
     balance_sim.compute()
 
-    dynamism_sim.input['conq_rate'] = metrics["conqueringRate"]
+    dynamism_sim.input['field_battles'] = min(metrics["fieldBattles"], BATTLES_MAX)
     dynamism_sim.input['reconq_rate'] = metrics["reconqueringRate"]
     dynamism_sim.input['peaks'] = metrics["peakDifferences"]
     dynamism_sim.compute()
@@ -229,16 +242,18 @@ if __name__ == '__main__':
     wyniki = evaluate_population(populacja)
 
     print()
-    print("=" * 96)
+    print("=" * 104)
     print(f"{'#':>2} {'spawnDist':>10} {'popMax':>7} {'unitCost':>9} "
-          f"{'teryt%':>8} {'growth%':>8} {'mil%':>7} {'conq%':>7} {'reconq%':>8} "
-          f"{'BALANS':>8} {'DYNAMIZM':>9}")
-    print("=" * 96)
+          f"{'teryt%':>8} {'growth%':>8} {'mil%':>7} {'reconq%':>8} {'peaks%':>7} "
+          f"{'bitwy':>7} {'conq%':>7} {'BALANS':>8} {'DYNAMIZM':>9}")
+    print("=" * 104)
     for i, (przepis, m) in enumerate(zip(populacja, wyniki), 1):
         b, d = score(m)
         print(f"{i:>2} {przepis['minSpawnDistance']:>10} {przepis['population_max']:>7} "
               f"{przepis['populationToCreateNewUnit']:>9} "
               f"{m['avgTerritorialImbalance'] * 100:>8.1f} {m['avgGrowthImbalance']:>8.1f} "
-              f"{m['avgMilitaryImbalance']:>7.1f} {m['conqueringRate']:>7.1f} "
-              f"{m['reconqueringRate']:>8.1f} {b:>8.4f} {d:>9.4f}")
-    print("=" * 96)
+              f"{m['avgMilitaryImbalance']:>7.1f} {m['reconqueringRate']:>8.1f} "
+              f"{m['peakDifferences']:>7.1f} {m['fieldBattles']:>7.1f} "
+              f"{m['conqueringRate']:>7.1f} {b:>8.4f} {d:>9.4f}")
+    print("=" * 104)
+    print("conq% to juz tylko bramka poprawnosci (prog " + str(MIN_CONQUERING_PCT) + "%), nie wejscie systemu")

@@ -795,9 +795,11 @@ bool TryChooseStepByPriorities(int unitIndex, Vector3Int currentPos, Vector3Int 
     // ------------------------------------------------------------
     // Token vs Token � zostawiasz jak masz (Twoja wersja)
     // ------------------------------------------------------------
-    public void ResolveCollisionsWith(BotController other)
+    // Zwraca liczbe stoczonych bitew polowych (token vs token)
+    public int ResolveCollisionsWith(BotController other)
     {
-        if (other == null) return;
+        int battles = 0;
+        if (other == null) return battles;
 
         for (int i = TokenCount - 1; i >= 0; i--)
         {
@@ -810,6 +812,7 @@ bool TryChooseStepByPriorities(int unitIndex, Vector3Int currentPos, Vector3Int 
 
             ArmyToken aTok = GetToken(i);
             ArmyToken bTok = other.GetToken(j);
+            battles++;
 
             if (aTok.armySize == bTok.armySize)
             {
@@ -857,6 +860,8 @@ bool TryChooseStepByPriorities(int unitIndex, Vector3Int currentPos, Vector3Int 
                 loser.ownedMineCount = Mathf.Max(0, loser.ownedMineCount - 1);
             }*/
         }
+
+        return battles;
     }
 
     // przej�cie pola po walce token vs token

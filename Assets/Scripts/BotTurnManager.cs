@@ -62,6 +62,10 @@ public class BotTurnManager : MonoBehaviour
         public float avgMilitaryImbalance;
         public float reconqueringRate;
         public float peakDifferences;
+        public float peakGrowthDiff;
+        public float peakMilitaryDiff;
+        public float peakAverage;
+        public float fieldBattles;
     }
 
     // Listy do zbierania średnich wyników z całego pokolenia (batcha 10 gier)
@@ -78,12 +82,19 @@ public class BotTurnManager : MonoBehaviour
     private List<float> batchMilitaryImbalances = new List<float>();
     private List<float> batchReconqueringRates = new List<float>();
     private List<float> batchPeakDifferences = new List<float>();
+    private List<float> batchPeakGrowthDiffs = new List<float>();
+    private List<float> batchPeakMilitaryDiffs = new List<float>();
+    private List<float> batchPeakAverages = new List<float>();
+    private List<float> batchFieldBattles = new List<float>();
 
     // Zmienne meczowe resetowane co grę
     private float currentMatchGrowthImbalanceSum = 0f;
     private float currentMatchMilitaryImbalanceSum = 0f;
     private int currentMatchReconquers = 0;
+    private int currentMatchFieldBattles = 0;
     private float currentMatchPeakTerritorialDiff = 0f;
+    private float currentMatchPeakGrowthDiff = 0f;
+    private float currentMatchPeakMilitaryDiff = 0f;
     private Dictionary<Vector3Int, int> previousCellOwners = new Dictionary<Vector3Int, int>();
 
     private System.Collections.IEnumerator Start()
@@ -123,7 +134,10 @@ public class BotTurnManager : MonoBehaviour
         currentMatchGrowthImbalanceSum = 0f;
         currentMatchMilitaryImbalanceSum = 0f;
         currentMatchReconquers = 0;
+        currentMatchFieldBattles = 0;
         currentMatchPeakTerritorialDiff = 0f;
+        currentMatchPeakGrowthDiff = 0f;
+        currentMatchPeakMilitaryDiff = 0f;
         previousCellOwners.Clear();
 
         currentGlobalTurnCount = 0;
@@ -152,12 +166,12 @@ public class BotTurnManager : MonoBehaviour
         if (isATurn)
         {
             botA.TakeTurn();
-            botA.ResolveCollisionsWith(botB);
+            currentMatchFieldBattles += botA.ResolveCollisionsWith(botB);
         }
         else
         {
             botB.TakeTurn();
-            botB.ResolveCollisionsWith(botA);
+            currentMatchFieldBattles += botB.ResolveCollisionsWith(botA);
         }
 
         // Lokalne zbieranie danych na potrzeby mostu z Pythonem
@@ -220,11 +234,15 @@ public class BotTurnManager : MonoBehaviour
 
             // Growth Imbalance: procentowa dysproporcja ZDOLNOSCI PRODUKCYJNEJ terytorium.
             float totalProd = prodA + prodB;
-            currentMatchGrowthImbalanceSum += totalProd > 0 ? (Mathf.Abs((float)prodA - prodB) / totalProd) * 100f : 0f;
+            float growthImb = totalProd > 0 ? (Mathf.Abs((float)prodA - prodB) / totalProd) * 100f : 0f;
+            currentMatchGrowthImbalanceSum += growthImb;
+            if (growthImb > currentMatchPeakGrowthDiff) currentMatchPeakGrowthDiff = growthImb;
 
             // Procentowa dysproporcja siły militarnej
             float totalArmy = totalArmyA + totalArmyB;
-            currentMatchMilitaryImbalanceSum += totalArmy > 0 ? (Mathf.Abs((float)totalArmyA - totalArmyB) / totalArmy) * 100f : 0f;
+            float milImb = totalArmy > 0 ? (Mathf.Abs((float)totalArmyA - totalArmyB) / totalArmy) * 100f : 0f;
+            currentMatchMilitaryImbalanceSum += milImb;
+            if (milImb > currentMatchPeakMilitaryDiff) currentMatchPeakMilitaryDiff = milImb;
 
             currentMatchRecordedTurns++;
         }
@@ -252,7 +270,7 @@ public class BotTurnManager : MonoBehaviour
         gameOver = true;
         int winnerId = GetWinnerId();
         
-        GameMetricsCollector.SaveGameReport(currentGlobalTurnCount, maxTurnsCap, botA, botB, winnerId);
+        GameMetricsCollector.SaveGameReport(currentGlobalTurnCount, maxTurnsCap, botA, botB, winnerId, currentMatchFieldBattles);
 
         float matchAvgTerritorialImbalance = currentMatchRecordedTurns > 0 ? currentMatchTerritorialImbalanceSum / currentMatchRecordedTurns : 0f;
         batchTerritorialImbalances.Add(matchAvgTerritorialImbalance);
@@ -279,7 +297,12 @@ public class BotTurnManager : MonoBehaviour
         float reconqRate = totalLand > 0 ? ((float)currentMatchReconquers / totalLand) * 100f : 0f;
         batchReconqueringRates.Add(reconqRate);
 
-        batchPeakDifferences.Add(currentMatchPeakTerritorialDiff * 100f);
+        float peakTerPct = currentMatchPeakTerritorialDiff * 100f;
+        batchPeakDifferences.Add(peakTerPct);
+        batchPeakGrowthDiffs.Add(currentMatchPeakGrowthDiff);
+        batchPeakMilitaryDiffs.Add(currentMatchPeakMilitaryDiff);
+        batchPeakAverages.Add((peakTerPct + currentMatchPeakGrowthDiff + currentMatchPeakMilitaryDiff) / 3f);
+        batchFieldBattles.Add(currentMatchFieldBattles);
 
         if (executionMode == GameExecutionMode.RealTime)
         {
@@ -314,7 +337,10 @@ public class BotTurnManager : MonoBehaviour
                 currentMatchGrowthImbalanceSum = 0f;
                 currentMatchMilitaryImbalanceSum = 0f;
                 currentMatchReconquers = 0;
+                currentMatchFieldBattles = 0;
                 currentMatchPeakTerritorialDiff = 0f;
+                currentMatchPeakGrowthDiff = 0f;
+                currentMatchPeakMilitaryDiff = 0f;
                 previousCellOwners.Clear();
 
                 mapGenerator.RerunMapGeneration();
@@ -357,6 +383,10 @@ public class BotTurnManager : MonoBehaviour
         batchMilitaryImbalances.Clear();
         batchReconqueringRates.Clear();
         batchPeakDifferences.Clear();
+        batchPeakGrowthDiffs.Clear();
+        batchPeakMilitaryDiffs.Clear();
+        batchPeakAverages.Clear();
+        batchFieldBattles.Clear();
     }
 
     PythonOutputMetrics BuildMetrics()
@@ -369,6 +399,10 @@ public class BotTurnManager : MonoBehaviour
         report.avgMilitaryImbalance = CalculateAverage(batchMilitaryImbalances);
         report.reconqueringRate = CalculateAverage(batchReconqueringRates);
         report.peakDifferences = CalculateAverage(batchPeakDifferences);
+        report.peakGrowthDiff = CalculateAverage(batchPeakGrowthDiffs);
+        report.peakMilitaryDiff = CalculateAverage(batchPeakMilitaryDiffs);
+        report.peakAverage = CalculateAverage(batchPeakAverages);
+        report.fieldBattles = CalculateAverage(batchFieldBattles);
         return report;
     }
 
