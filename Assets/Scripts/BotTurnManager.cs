@@ -158,6 +158,7 @@ public class BotTurnManager : MonoBehaviour
     {
         int ownedA = 0; int ownedB = 0; int totalLand = 0;
         int totalArmyA = 0; int totalArmyB = 0;
+        int prodA = 0; int prodB = 0;   // zdolnosc produkcyjna = suma populationNumber posiadanych pol
 
         // 1. Zliczanie wojska Bota A (Tokeny + Baza)
         for (int i = 0; i < botA.TokenCount; i++)
@@ -174,8 +175,8 @@ public class BotTurnManager : MonoBehaviour
         {
             if (cell.isWater || !cell.passable) continue;
             totalLand++;
-            if (cell.ownerId == botA.botOwnerId) ownedA++;
-            else if (cell.ownerId == botB.botOwnerId) ownedB++;
+            if (cell.ownerId == botA.botOwnerId) { ownedA++; prodA += Mathf.Max(0, cell.populationNumber); }
+            else if (cell.ownerId == botB.botOwnerId) { ownedB++; prodB += Mathf.Max(0, cell.populationNumber); }
 
             if (previousCellOwners.TryGetValue(cell.coord, out int prevOwner))
             {
@@ -196,9 +197,9 @@ public class BotTurnManager : MonoBehaviour
             if (currentTermImbalance > currentMatchPeakTerritorialDiff)
                 currentMatchPeakTerritorialDiff = currentTermImbalance;
 
-            // Procentowa dysproporcja ekonomiczna kont
-            float totalPop = botA.population + botB.population;
-            currentMatchGrowthImbalanceSum += totalPop > 0 ? (Mathf.Abs((float)botA.population - botB.population) / totalPop) * 100f : 0f;
+            // Growth Imbalance: procentowa dysproporcja ZDOLNOSCI PRODUKCYJNEJ terytorium.
+            float totalProd = prodA + prodB;
+            currentMatchGrowthImbalanceSum += totalProd > 0 ? (Mathf.Abs((float)prodA - prodB) / totalProd) * 100f : 0f;
 
             // Procentowa dysproporcja siły militarnej
             float totalArmy = totalArmyA + totalArmyB;

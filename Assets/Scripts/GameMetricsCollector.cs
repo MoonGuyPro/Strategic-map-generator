@@ -11,10 +11,11 @@ public static class GameMetricsCollector
     private static List<float> territorialImbalances = new();
     private static List<float> growthImbalances = new();
     private static List<float> militaryImbalances = new();
+    private static List<float> bankImbalances = new();
 
     // Wyznaczanie punktów kulminacyjnych (Peak Differences)
     private static float peakTerritorialDiff = 0f;
-    private static float peakPopulationDiff = 0f;
+    private static float peakGrowthDiff = 0f;
     private static float peakMilitaryDiff = 0f;
 
     public static void Reset(HexMapGenerator map)
@@ -23,9 +24,10 @@ public static class GameMetricsCollector
         territorialImbalances.Clear();
         growthImbalances.Clear();
         militaryImbalances.Clear();
+        bankImbalances.Clear();
 
         peakTerritorialDiff = 0f;
-        peakPopulationDiff = 0f;
+        peakGrowthDiff = 0f;
         peakMilitaryDiff = 0f;
 
         // Liczymy ile jest lądu na mapie, by wyznaczyć Conquering Rate
@@ -54,8 +56,10 @@ public static class GameMetricsCollector
         int popB = botB.population;
         int milA = 0;
         int milB = 0;
+        int prodA = 0;
+        int prodB = 0;
 
-        // Skanowanie mapy dla terytoriów i armii na polach
+        // Skanowanie mapy dla terytoriów, zdolności produkcyjnej i armii na polach
         foreach (var cell in map.DebugCells)
         {
             if (cell.isWater || !cell.passable) continue;
@@ -64,11 +68,13 @@ public static class GameMetricsCollector
             {
                 ownedByA++;
                 milA += cell.army;
+                prodA += Mathf.Max(0, cell.populationNumber);
             }
             else if (cell.ownerId == botB.botOwnerId)
             {
                 ownedByB++;
                 milB += cell.army;
+                prodB += Mathf.Max(0, cell.populationNumber);
             }
         }
 
@@ -83,10 +89,15 @@ public static class GameMetricsCollector
         territorialImbalances.Add(termDiff);
         if (termDiff > peakTerritorialDiff) peakTerritorialDiff = termDiff;
 
-        // 2. Growth Imbalance (Absolutna różnica populacji)
-        float popDiff = Mathf.Abs(popA - popB);
-        growthImbalances.Add(popDiff);
-        if (popDiff > peakPopulationDiff) peakPopulationDiff = popDiff;
+        // 2. Growth Imbalance (procentowa różnica zdolności produkcyjnej terytorium)
+        float totalProd = prodA + prodB;
+        float growthDiff = totalProd > 0f ? (Mathf.Abs((float)prodA - prodB) / totalProd) * 100f : 0f;
+        growthImbalances.Add(growthDiff);
+        if (growthDiff > peakGrowthDiff) peakGrowthDiff = growthDiff;
+
+        // 2b. Diagnostyka: dysproporcja stanu kont (wynik decyzji o wydatkach, nie własności mapy)
+        float totalBank = popA + popB;
+        bankImbalances.Add(totalBank > 0f ? (Mathf.Abs((float)popA - popB) / totalBank) * 100f : 0f);
 
         // 3. Military Imbalance (Absolutna różnica siły militarnej)
         float milDiff = Mathf.Abs(milA - milB);
@@ -100,6 +111,7 @@ public static class GameMetricsCollector
         float avgTerritorialImbalance = CalculateAverage(territorialImbalances);
         float avgGrowthImbalance = CalculateAverage(growthImbalances);
         float avgMilitaryImbalance = CalculateAverage(militaryImbalances);
+        float avgBankImbalance = CalculateAverage(bankImbalances);
 
         float gameLengthPercentage = ((float)finalTurns / maxTurns) * 100f;
 
@@ -129,13 +141,16 @@ public static class GameMetricsCollector
             writer.WriteLine($"Reconquering Rate (Wskaznik odbijania): {reconqueringRate:F2}%");
             writer.WriteLine();
             writer.WriteLine("METRYKI BALANSU I DYNAMIKI (SREDNIE Z CALEJ GRY):");
-            writer.WriteLine($"- Territorial Imbalance: {avgTerritorialImbalance * 100f:F2}%");
-            writer.WriteLine($"- Growth Imbalance (Populacja): {avgGrowthImbalance:F2}");
+            writer.WriteLine($"- Territorial Imbalance (Liczba pol): {avgTerritorialImbalance * 100f:F2}%");
+            writer.WriteLine($"- Growth Imbalance (Zdolnosc produkcyjna terytorium): {avgGrowthImbalance:F2}%");
             writer.WriteLine($"- Military Imbalance (Wojsko): {avgMilitaryImbalance:F2}");
+            writer.WriteLine();
+            writer.WriteLine("DIAGNOSTYKA (POZA FUNKCJA PRZYSTOSOWANIA):");
+            writer.WriteLine($"- Dysproporcja stanu kont botow: {avgBankImbalance:F2}%");
             writer.WriteLine();
             writer.WriteLine("PUNKTY KULMINACYJNE PRZEWAGI (PEAK DIFFERENCES):");
             writer.WriteLine($"- Peak Territorial Difference: {peakTerritorialDiff * 100f:F2}%");
-            writer.WriteLine($"- Peak Population Difference: {peakPopulationDiff:F2}");
+            writer.WriteLine($"- Peak Growth Difference: {peakGrowthDiff:F2}%");
             writer.WriteLine($"- Peak Military Difference: {peakMilitaryDiff:F2}");
             writer.WriteLine();
             writer.WriteLine("STATYSTYKI DECYZYJNE BOTOW (WYBORY PRIORYTETOW):");
