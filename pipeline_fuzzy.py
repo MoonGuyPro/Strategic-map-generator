@@ -9,20 +9,20 @@ from skfuzzy import control as ctrl
 # 1. PEŁNA KONFIGURACJA LOGIKI ROZMYTEJ (MAPPING 1:1 Z GDD)
 # ============================================================
 
-# Progi wyznaczone z badania pilotazowego (50 chromosomow x 20 meczow, pilotaz.py).
+# Progi wyznaczone z dwoch niezaleznych przebiegow pilotazowych (2 x 50 chromosomow x 20 meczow = 2000 meczow).
 # Dla kazdej zmiennej: kwantyl 25% / mediana / kwantyl 75% zmierzonego rozkladu.
 # Dzieki temu kazdy zbior lingwistyczny obejmuje mniej wiecej jedna trzecia realnych map.
 PROGI = {
-    'term_imbalance':     (12.1, 14.7, 17.3),
-    'growth_imbalance':   (17.6, 20.5, 23.6),
-    'military_imbalance': (16.2, 20.5, 24.7),
-    'reconq_rate':        (41.5, 70.4, 101.3),
-    'field_battles':      (20.0, 36.2, 53.6),
-    'peaks':              (52.9, 62.1, 68.9),
+    'term_imbalance':     (11.9, 14.6, 17.1),
+    'growth_imbalance':   (17.3, 20.5, 23.4),
+    'military_imbalance': (16.0, 20.7, 24.5),
+    'reconq_rate':        (41.4, 66.5, 100.9),
+    'lead_rate':          (1.91, 2.66, 3.29),
+    'peaks':              (52.2, 61.7, 68.3),
 }
 
 RECONQ_MAX = 200              # reconquering przekracza 100% (zmierzone maksimum 146)
-BATTLES_MAX = 200             # zmierzone maksimum 85, zostawiamy zapas
+LEAD_MAX = 20                 # zmiany prowadzenia na 100 tur; zmierzone maksimum 4,3
 
 # WEJŚCIA DLA KRYTERIUM BALANSU
 term_imbalance = ctrl.Antecedent(np.arange(0, 101, 1), 'term_imbalance')
@@ -31,7 +31,7 @@ military_imbalance = ctrl.Antecedent(np.arange(0, 101, 1), 'military_imbalance')
 
 # WEJŚCIA DLA KRYTERIUM DYNAMIZMU
 # conqueringRate NIE jest juz wejsciem - pelni role bramki poprawnosci, jak gameLength
-field_battles = ctrl.Antecedent(np.arange(0, BATTLES_MAX + 1, 1), 'field_battles')
+lead_rate = ctrl.Antecedent(np.arange(0, LEAD_MAX + 0.01, 0.01), 'lead_rate')
 reconq_rate = ctrl.Antecedent(np.arange(0, RECONQ_MAX + 1, 1), 'reconq_rate')
 peaks = ctrl.Antecedent(np.arange(0, 101, 1), 'peaks')
 
@@ -60,10 +60,10 @@ trojstanowa(reconq_rate, 'reconq_rate', RECONQ_MAX)
 # Zbior HIGH to jednostronna dominacja, LOW to mecz plaski.
 trojstanowa(peaks, 'peaks', 100)
 
-# Bitwy polowe maja tylko dwa stany: im wiecej, tym dynamiczniej
-_qb25, _qbmed, _qb75 = PROGI['field_battles']
-field_battles['low'] = fuzz.trimf(field_battles.universe, [0, 0, _qb75])
-field_battles['high'] = fuzz.trapmf(field_battles.universe, [_qb25, _qb75, BATTLES_MAX, BATTLES_MAX])
+# Zmiany prowadzenia (na 100 tur) maja dwa stany: im wiecej odwrocen losow, tym dynamiczniej
+_ql25, _qlmed, _ql75 = PROGI['lead_rate']
+lead_rate['low'] = fuzz.trimf(lead_rate.universe, [0, 0, _ql75])
+lead_rate['high'] = fuzz.trapmf(lead_rate.universe, [_ql25, _ql75, LEAD_MAX, LEAD_MAX])
 
 # --- Definicja Wyjść Oceny Grywalności ---
 for out in [balance, dynamism]:
@@ -111,7 +111,7 @@ BALANCE_TABLE = {
     ('H', 'H', 'H'): 'low',
 }
 
-# Tabela decyzyjna DYNAMIZMU: (Bitwy polowe, Reconquering, Peaks) -> ocena. Komplet 18 kombinacji.
+# Tabela decyzyjna DYNAMIZMU: (Zmiany prowadzenia, Reconquering, Peaks) -> ocena. Komplet 18 kombinacji.
 # Peaks SREDNI jest najlepszy: wysoki oznacza jednostronna dominacje, niski mecz bez zwrotow akcji.
 DYNAMISM_TABLE = {
     ('L', 'L', 'L'): 'low',
@@ -146,9 +146,9 @@ def _build_rules(table, ant_a, ant_b, ant_c, consequent, expected_count):
     ]
 
 
-# field_battles ma dwa stany, reconq i peaks po trzy: 2 * 3 * 3 = 18 kombinacji
+# lead_rate ma dwa stany, reconq i peaks po trzy: 2 * 3 * 3 = 18 kombinacji
 balance_rules = _build_rules(BALANCE_TABLE, term_imbalance, growth_imbalance, military_imbalance, balance, 27)
-dynamism_rules = _build_rules(DYNAMISM_TABLE, field_battles, reconq_rate, peaks, dynamism, 18)
+dynamism_rules = _build_rules(DYNAMISM_TABLE, lead_rate, reconq_rate, peaks, dynamism, 18)
 
 # Kompilacja kontrolerów wnioskowania
 balance_ctrl = ctrl.ControlSystem(balance_rules)
@@ -243,7 +243,7 @@ def score(metrics):
     balance_sim.input['military_imbalance'] = metrics["avgMilitaryImbalance"]
     balance_sim.compute()
 
-    dynamism_sim.input['field_battles'] = min(metrics["fieldBattles"], BATTLES_MAX)
+    dynamism_sim.input['lead_rate'] = min(metrics["leadChangeRate"], LEAD_MAX)
     dynamism_sim.input['reconq_rate'] = min(metrics["reconqueringRate"], RECONQ_MAX)
     dynamism_sim.input['peaks'] = metrics["peakAverage"]
     dynamism_sim.compute()
@@ -268,7 +268,7 @@ if __name__ == '__main__':
     print("=" * 104)
     print(f"{'#':>2} {'spawnDist':>10} {'popMax':>7} {'unitCost':>9} "
           f"{'teryt%':>8} {'growth%':>8} {'mil%':>7} {'reconq%':>8} {'peaks%':>7} "
-          f"{'bitwy':>7} {'conq%':>7} {'BALANS':>8} {'DYNAMIZM':>9}")
+          f"{'zm/100t':>8} {'bitwy':>7} {'conq%':>7} {'BALANS':>8} {'DYNAMIZM':>9}")
     print("=" * 104)
     for i, (przepis, m) in enumerate(zip(populacja, wyniki), 1):
         b, d = score(m)
@@ -276,7 +276,7 @@ if __name__ == '__main__':
               f"{przepis['populationToCreateNewUnit']:>9} "
               f"{m['avgTerritorialImbalance'] * 100:>8.1f} {m['avgGrowthImbalance']:>8.1f} "
               f"{m['avgMilitaryImbalance']:>7.1f} {m['reconqueringRate']:>8.1f} "
-              f"{m['peakAverage']:>7.1f} {m['fieldBattles']:>7.1f} "
+              f"{m['peakAverage']:>7.1f} {m['leadChangeRate']:>8.2f} {m['fieldBattles']:>7.1f} "
               f"{m['conqueringRate']:>7.1f} {b:>8.4f} {d:>9.4f}")
     print("=" * 104)
     print("conq% to juz tylko bramka poprawnosci (prog " + str(MIN_CONQUERING_PCT) + "%), nie wejscie systemu")

@@ -36,6 +36,8 @@ METRYKI = [
     ('avgGrowthImbalance', 'Growth imbalance [%]', 1.0),
     ('avgMilitaryImbalance', 'Military imbalance [%]', 1.0),
     ('reconqueringRate', 'Reconquering rate [%]', 1.0),
+    ('leadChanges', 'Zmiany prowadzenia [szt]', 1.0),
+    ('leadChangeRate', 'Zmiany prowadzenia /100 tur', 1.0),
     ('fieldBattles', 'Bitwy polowe [szt]', 1.0),
     ('peakDifferences', 'Peak terytorialny [%]', 1.0),
     ('peakGrowthDiff', 'Peak gospodarczy [%]', 1.0),

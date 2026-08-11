@@ -107,7 +107,7 @@ public static class GameMetricsCollector
         if (milDiff > peakMilitaryDiff) peakMilitaryDiff = milDiff;
     }
 
-    public static void SaveGameReport(int finalTurns, int maxTurns, BotController botA, BotController botB, int winnerId, int fieldBattles)
+    public static void SaveGameReport(int finalTurns, int maxTurns, BotController botA, BotController botB, int winnerId, int fieldBattles, int leadChanges)
     {
         // Obliczanie średnich wartości dla metryk z artykułu
         float avgTerritorialImbalance = CalculateAverage(territorialImbalances);
@@ -145,6 +145,8 @@ public static class GameMetricsCollector
             writer.WriteLine($"Reconquering Rate (Wskaznik odbijania): {reconqueringRate:F2}%");
             writer.WriteLine($"Field Battles (Bitwy polowe token vs token): {fieldBattles}");
             writer.WriteLine($"Field Battles na 100 tur: {(finalTurns > 0 ? fieldBattles * 100f / finalTurns : 0f):F2}");
+            writer.WriteLine($"Lead Changes (Zmiany prowadzenia): {leadChanges}");
+            writer.WriteLine($"Lead Changes na 100 tur: {(finalTurns > 0 ? leadChanges * 100f / finalTurns : 0f):F2}");
             writer.WriteLine();
             writer.WriteLine("METRYKI BALANSU I DYNAMIKI (SREDNIE Z CALEJ GRY):");
             writer.WriteLine($"- Territorial Imbalance (Liczba pol): {avgTerritorialImbalance * 100f:F2}%");
