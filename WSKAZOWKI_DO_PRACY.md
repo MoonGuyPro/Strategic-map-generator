@@ -42,7 +42,8 @@ na kwantylach, bazy reguł. Rozdział, którego w artykule w ogóle nie ma.
 
 **6. Optymalizacja wielokryterialna** — NSGA-II, genotyp, operatory, front Pareto.
 
-**7. Weryfikacja** — porównanie z mapami wzorcowymi i kontrolnymi (patrz punkt 6 niżej).
+**7. Weryfikacja** — mapy wzorcowe i kontrolne, dowód że ocena zgadza się z ludzką intuicją
+(patrz rozdz. 7 niżej).
 
 **8. Wyniki i dyskusja** — front Pareto, charakterystyka najlepszych map, **relacja balans–dynamizm**.
 
@@ -294,60 +295,131 @@ jest bezużyteczny jako miara jakości mapy i dlaczego potrzeba ich kilkudziesi�
 
 ---
 
-## 7. Weryfikacja — plan po sugestii promotora
+## 7. Weryfikacja funkcji przystosowania — WYKONANA
 
-Promotor ma rację i to jest najsłabszy obecnie punkt pracy: **wiemy, że metryki różnicują mapy,
-ale nie wiemy, czy różnicują je zgodnie z ludzką oceną**.
+Odpowiedź na uwagę promotora. To jest osobny rozdział pracy i najmocniejszy argument
+metodologiczny, bo dowodzi, że system ocenia zgodnie z ludzką intuicją, a nie tylko sam ze sobą.
 
-Dodatkowy problem, który warto uświadomić sobie przed weryfikacją: obecny generator **z założenia
-nie potrafi wyprodukować bardzo niezbalansowanej mapy**. Liczba pól lądowych jest stała (360),
-pula populacji stała (72 pola na każdy z pięciu progów), rozmieszczenie losowe. Jedyna asymetria
-bierze się z lokalizacji baz i lokalnego szczęścia. Dlatego oceny balansu układają się w wąskim
-paśmie, a wartość „0,13" nie oznacza mapy złej w sensie bezwzględnym, tylko najgorszą z dość
-dobrego zbioru.
+### Dlaczego była potrzebna
 
-**Oceny są względne wobec zaobserwowanego rozkładu, nie bezwzględne.** To trzeba napisać wprost
-i to jest dokładnie powód, dla którego weryfikacja na zewnętrznych punktach odniesienia jest
-potrzebna.
+Kalibracja progów gwarantuje, że system rozróżnia mapy pochodzące z generatora. Nie dowodzi
+jednak, że rozróżnia je **poprawnie**. Ocena 0,13 znaczyła dotąd wyłącznie „najgorsza z
+wygenerowanych", a nie „mapa obiektywnie zła".
 
-### Plan minimum: kontrole negatywne i pozytywne
+Dodatkowo obecny generator z założenia nie potrafi wyprodukować mapy skrajnie niesprawiedliwej:
+liczba pól lądowych jest stała (360), pula populacji stała (72 pola na każdy z pięciu progów),
+rozmieszczenie losowe. Żeby sprawdzić, czy metryka wykrywa mapę zepsutą, trzeba było taką mapę
+**celowo wytworzyć**.
 
-Wymaga dorobienia wczytywania mapy z pliku (kilkadziesiąt linii w generatorze).
+### Jak zbudowano zestaw kontrolny
 
-**Kontrole negatywne** — mapy, o których człowiek bez wahania powie „to jest zepsute":
-1. wszystkie pola z najwyższego progu populacji skupione wokół bazy Bota 1, najniższe wokół Bota 2
-2. pas wody dzielący mapę tak, że jeden bot ma dostęp do 70% lądu
-3. bazy postawione w odległości 2 heksów od siebie
+Pięć trybów generatora, po 20 meczów każdy:
 
-**Kontrole pozytywne** — mapy zaprojektowane jako sprawiedliwe:
-1. układ z symetrią obrotową 180° (jak większość map 1v1 w StarCraft II)
-2. układ z symetrią lustrzaną
-3. mapa z równomiernym rozłożeniem zasobów i równym dystansem do centrum
+| tryb | opis | co testuje |
+|---|---|---|
+| **wzorzec** | symetria obrotowa 180° | czy system docenia mapę idealnie sprawiedliwą |
+| **normalny** | generator losowy | punkt odniesienia, to co optymalizuje NSGA-II |
+| zepsuty 1 | najbogatsze pola skupione wokół bazy 1 | Growth Imbalance |
+| zepsuty 2 | baza 2 zepchnięta na skraj, baza 1 w centrum | Territorial Imbalance |
+| zepsuty 3 | bazy tuż obok siebie | Game Length, efekt kuli śnieżnej |
 
-**Kryterium sukcesu:** kontrole negatywne muszą dostać ocenę balansu wyraźnie niższą niż pozytywne.
-Jeśli system tego nie rozróżni — metryki nie mierzą tego, co deklarują, i to trzeba naprawić przed
-uruchomieniem NSGA-II.
+**O symetrii obrotowej warto napisać osobno.** Na siatce odd-r odwzorowanie
+`(x, y) → (szerokość−1−x, wysokość−1−y)` odpowiada odbiciu punktowemu we współrzędnych
+sześciennych, więc **zachowuje wszystkie odległości heksowe** — potwierdzone numerycznie na
+20 000 losowych par pól. Plansza dzieli się na 200 rozłącznych par, żadne pole nie jest własnym
+obrazem, więc woda i populacja przydzielane są parami, a baza drugiego bota jest obrazem bazy
+pierwszego. Warunki startowe są tożsame nie z przybliżenia, lecz z konstrukcji. Obrót o 180° to
+standard projektowy map turniejowych 1v1 na sztywnych siatkach (Advance Wars, Wargroove,
+Into the Breach), bo zachowuje długości dróg przemarszu — czego odbicie lustrzane nie gwarantuje.
 
-### Plan rozszerzony: odniesienie do map z istniejących gier
+### Wynik: metryki działają
 
-Zgodnie z drugą sugestią promotora. Mapy 1v1 ze StarCrafta II i Warcrafta III mają udokumentowane
-zasady projektowe:
+| tryb mapy | teryt % | growth % | mil % | reconq % |
+|---|---:|---:|---:|---:|
+| symetria obrotowa | **14,2** | **18,2** | **20,9** | **104,2** |
+| generator normalny | 19,1 | 27,1 | 26,5 | 53,4 |
+| bogata strefa przy bazie 1 | 21,0 | **59,1** | **43,2** | 8,9 |
+| baza 2 na skraju | **23,5** | 31,6 | 28,6 | 35,1 |
 
-- symetria obrotowa lub lustrzana względem środka
-- identyczna liczba baz rozszerzeń dla obu graczy
-- równy dystans od bazy głównej do pierwszego rozszerzenia
-- przesmyki (choke points) w symetrycznych miejscach
+Każde zaburzenie wykryte przez tę metrykę, która miała je wykryć:
 
-Nie trzeba odwzorowywać konkretnej mapy heks po heksie. Wystarczy **zaimplementować te zasady**
-jako alternatywny generator, wygenerować kilkanaście map i pokazać, że system rozmyty ocenia je
-wyżej niż mapy losowe. To jest weryfikacja „na bazie czegoś, co dobrze funkcjonuje w zbliżonej
-grze" — dokładnie o to promotor prosił.
+- **bogata strefa** podniosła Growth Imbalance z 27,1 % do **59,1 %**, ponad dwukrotnie — to
+  bezpośrednie potwierdzenie zasadności przedefiniowania tej metryki (rozdz. 4.1)
+- **baza na skraju** dała najwyższą nierównowagę terytorialną
+- **symetria** dała najniższe wszystkie trzy nierównowagi i **dwukrotnie wyższy** wskaźnik
+  odbijania niż mapa losowa — idealnie wyrównane siły powodują nieustanne falowanie frontu
 
-### Plan maksimum: ocena ekspercka
+### Najciekawszy przypadek: bazy obok siebie
 
-10–20 map przedstawionych 3–5 osobom grającym w strategie, z prośbą o ocenę „jak bardzo ta mapa
-wygląda na sprawiedliwą" w skali 1–5. Następnie korelacja ocen ludzkich z oceną systemu rozmytego.
-Współczynnik korelacji rzędu 0,6–0,7 byłby bardzo mocnym argumentem.
+Ten tryb miał **najniższe** surowe nierównowagi z całego zestawienia: terytorialna 0,7 %,
+militarna 3,1 %. Wyglądał więc na mapę idealnie zbalansowaną — bo gra kończy się, zanim
+ktokolwiek zdąży zbudować przewagę.
+
+Odrzuciła go dopiero **bramka poprawności**: wskaźnik podboju 7,2 % wobec progu 60 %.
+
+To jest empiryczne uzasadnienie decyzji o przeniesieniu Conquering Rate z wejść systemu do
+warunków dopuszczenia wyniku (rozdz. 4.2). Gdyby pozostał zwykłym wejściem, mapa ta dostałaby
+wysoką ocenę, a NSGA-II ewoluowałby w stronę map, na których rozgrywka kończy się po kilkudziesięciu
+turach.
+
+### Co weryfikacja wykryła w samym systemie oceny
+
+Pierwsze uruchomienie **nie przeszło** kryterium: trzy różne mapy dostały identyczną ocenę 0,1333,
+czyli matematyczne dno wyjścia systemu rozmytego.
+
+Przyczyna: zbiór WYSOKI osiągał pełną przynależność już na kwantylu 75 % rozkładu z pilotażu.
+Wszystko powyżej było „równie złe", więc mapa umiarkowanie zła i katastrofalna dawały ten sam
+wynik. Sprawdzenie na danych pilotażowych pokazało, że **24 % konfiguracji lądowało na tym dnie** —
+jedna czwarta przestrzeni przeszukiwania była dla algorytmu ewolucyjnego płaska.
+
+Poprawka: punkt nasycenia zbioru WYSOKI przesunięty z kwantyla 75 % na **wartość maksymalną
+zaobserwowaną w pilotażu**.
+
+| | konfiguracji na dnie | rozróżnialnych ocen |
+|---|---:|---:|
+| przed | 13 / 50 (24 %) | 41 / 50 |
+| **po** | **1 / 50 (2 %)** | **47 / 50** |
+
+Po poprawce oceny układają się w oczekiwanej kolejności:
+
+| tryb mapy | BALANS | DYNAMIZM |
+|---|---:|---:|
+| symetria obrotowa | **0,590** | **0,759** |
+| generator normalny | 0,174 | 0,561 |
+| bogata strefa | 0,141 | 0,154 |
+| baza na skraju | 0,133 | 0,157 |
+| bazy obok siebie | 0,000 | 0,000 |
+
+Oba warunki spełnione: wzorzec ≥ losowa, losowa > najlepsza zepsuta.
+
+**To jest bardzo dobry fragment pracy** — pokazuje, że weryfikacja nie była formalnością, tylko
+wykryła realną wadę kalibracji, którą naprawiono przed uruchomieniem optymalizacji.
+
+### Zastrzeżenie do zapisania
+
+Skala ocen pozostaje **względna wobec rozkładu z pilotażu**. Mapa z bogatą strefą ma Growth
+Imbalance 59,1 %, podczas gdy generator normalny wytwarza 13,9–32,4 % — jest poza zakresem
+kalibracji i nadal się nasyca. Nie jest to wada, lecz właściwość metody: system kalibrowano po to,
+by rozróżniał mapy rzeczywiście wytwarzane przez generator, a nie by mierzył patologie w skali
+bezwzględnej.
+
+Dlatego w rozdziale weryfikacyjnym należy podawać **i surowe metryki, i ocenę rozmytą**. Surowe
+dowodzą, że wykrywanie działa nawet daleko poza zakresem kalibracji.
+
+### Co jeszcze można zrobić, jeśli zostanie czas
+
+**Odniesienie do map z istniejących gier.** Mapy 1v1 ze StarCrafta II i Warcrafta III mają
+udokumentowane zasady: symetria względem środka, identyczna liczba baz rozszerzeń, równy dystans
+do pierwszego rozszerzenia, przesmyki w symetrycznych miejscach. Nie trzeba odwzorowywać konkretnej
+mapy — wystarczy zaimplementować te zasady jako kolejny tryb generatora.
+
+Uwaga na pułapkę: **nie odwzorowuj konkretnej mapy 1:1**. Mapa ze StarCrafta jest zbalansowana
+*dla StarCrafta*, jego jednostek i tempa. Jeśli w tej grze wypadnie źle, nie będzie wiadomo, czy
+zawiodła metryka, czy topologia po prostu nie pasuje do innej mechaniki.
+
+**Ocena ekspercka.** 10–20 map przedstawionych 3–5 osobom grającym w strategie, ocena „jak bardzo
+ta mapa wygląda na sprawiedliwą" w skali 1–5, następnie korelacja z oceną systemu. Współczynnik
+rzędu 0,6–0,7 byłby bardzo mocnym argumentem.
 
 ---
 
@@ -366,6 +438,10 @@ Współczynnik korelacji rzędu 0,6–0,7 byłby bardzo mocnym argumentem.
 | Przewaga pierwszego ruchu | 53,6 % zwycięstw, 1,0 sigma — nie wykryto |
 | Przewaga pozycyjna bazy nr 1 | 55,8 % przed poprawką → 48,4 % po |
 | Meczów kończących się remisem | 17,1 % |
+| Ocena mapy wzorcowej (symetria 180°) | balans 0,590 · dynamizm 0,759 |
+| Ocena mapy losowej | balans 0,174 · dynamizm 0,561 |
+| Ocena map celowo zepsutych | balans 0,141 do 0,000 |
+| Nasycenie skali przed poprawką / po | 24 % / 2 % konfiguracji na dnie |
 | Reguł w bazie balansu | 27 (komplet 3³) |
 | Reguł w bazie dynamizmu | 18 (2 × 3 × 3) |
 | Błąd średniej przy 20 meczach | terytorium ±2,0 · gospodarka ±2,5 · odbijanie ±9,7 |
