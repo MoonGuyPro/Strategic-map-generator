@@ -10,15 +10,16 @@ from skfuzzy import control as ctrl
 # ============================================================
 
 # Progi wyznaczone z dwoch niezaleznych przebiegow pilotazowych (2 x 50 chromosomow x 20 meczow = 2000 meczow).
-# Dla kazdej zmiennej: kwantyl 25% / mediana / kwantyl 75% zmierzonego rozkladu.
-# Dzieki temu kazdy zbior lingwistyczny obejmuje mniej wiecej jedna trzecia realnych map.
+# Kolejno: kwantyl 25% / mediana / kwantyl 75% / wartosc maksymalna zmierzonego rozkladu.
+# Kwantyle wyznaczaja granice zbiorow, a maksimum - punkt pelnego nasycenia zbioru WYSOKI.
+# Nasycenie na kwantylu 75% powodowalo, ze 24% konfiguracji dostawalo identyczna ocene minimalna.
 PROGI = {
-    'term_imbalance':     (11.9, 14.6, 17.1),
-    'growth_imbalance':   (17.3, 20.5, 23.4),
-    'military_imbalance': (16.0, 20.7, 24.5),
-    'reconq_rate':        (41.4, 66.5, 100.9),
-    'lead_rate':          (1.91, 2.66, 3.29),
-    'peaks':              (52.2, 61.7, 68.3),
+    'term_imbalance':     (11.9, 14.6, 17.1, 22.6),
+    'growth_imbalance':   (17.3, 20.5, 23.4, 32.4),
+    'military_imbalance': (16.0, 20.7, 24.5, 30.6),
+    'reconq_rate':        (41.4, 66.5, 100.9, 161.2),
+    'lead_rate':          (1.91, 2.66, 3.29, 4.25),
+    'peaks':              (52.2, 61.7, 68.3, 84.4),
 }
 
 RECONQ_MAX = 200              # reconquering przekracza 100% (zmierzone maksimum 146)
@@ -41,11 +42,11 @@ dynamism = ctrl.Consequent(np.arange(0, 1.01, 0.01), 'dynamism')
 
 
 def trojstanowa(zmienna, nazwa, gora):
-    """Zbiory LOW/MEDIUM/HIGH zakotwiczone na kwantylach 25 / 50 / 75."""
-    q25, med, q75 = PROGI[nazwa]
+    """Zbiory LOW/MEDIUM/HIGH na kwantylach; WYSOKI nasyca sie dopiero przy maksimum z pilotazu."""
+    q25, med, q75, maks = PROGI[nazwa]
     zmienna['low'] = fuzz.trimf(zmienna.universe, [0, 0, med])
     zmienna['medium'] = fuzz.trimf(zmienna.universe, [q25, med, q75])
-    zmienna['high'] = fuzz.trapmf(zmienna.universe, [med, q75, gora, gora])
+    zmienna['high'] = fuzz.trapmf(zmienna.universe, [med, maks, gora, gora])
 
 
 # --- Metryki balansu: kazda kalibrowana na wlasnym rozkladzie ---
@@ -61,9 +62,9 @@ trojstanowa(reconq_rate, 'reconq_rate', RECONQ_MAX)
 trojstanowa(peaks, 'peaks', 100)
 
 # Zmiany prowadzenia (na 100 tur) maja dwa stany: im wiecej odwrocen losow, tym dynamiczniej
-_ql25, _qlmed, _ql75 = PROGI['lead_rate']
+_ql25, _qlmed, _ql75, _qlmaks = PROGI['lead_rate']
 lead_rate['low'] = fuzz.trimf(lead_rate.universe, [0, 0, _ql75])
-lead_rate['high'] = fuzz.trapmf(lead_rate.universe, [_ql25, _ql75, LEAD_MAX, LEAD_MAX])
+lead_rate['high'] = fuzz.trapmf(lead_rate.universe, [_ql25, _qlmaks, LEAD_MAX, LEAD_MAX])
 
 # --- Definicja Wyjść Oceny Grywalności ---
 for out in [balance, dynamism]:

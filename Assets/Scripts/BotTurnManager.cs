@@ -38,6 +38,7 @@ public class BotTurnManager : MonoBehaviour
         public int minSpawnDistance;
         public int population_max;
         public int populationToCreateNewUnit;
+        public int mapMode;
     }
 
     [System.Serializable]
@@ -461,6 +462,7 @@ public class BotTurnManager : MonoBehaviour
 
     void ApplyRecipe(PythonInputRecipe recipe)
     {
+        mapGenerator.mapMode = recipe.mapMode;
         mapGenerator.minSpawnDistance = recipe.minSpawnDistance;
         mapGenerator.population_max = recipe.population_max;
         botA.populationToCreateNewUnit = recipe.populationToCreateNewUnit;

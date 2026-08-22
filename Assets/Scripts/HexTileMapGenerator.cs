@@ -31,6 +31,20 @@ public class HexMapGenerator : MonoBehaviour
     [Header("Spawny graczy")]
     public int minSpawnDistance = 10;
 
+    [Header("Tryb generowania (0 = normalny, uzywany przez NSGA-II)")]
+    [Tooltip("0 normalny | 1 bogata strefa przy bazie 1 | 2 baza 2 w rogu | 3 bazy obok siebie | 4 symetria obrotowa 180 stopni")]
+    public int mapMode = MODE_NORMAL;
+
+    public const int MODE_NORMAL = 0;
+    public const int MODE_RICH_ZONE = 1;
+    public const int MODE_CORNER = 2;
+    public const int MODE_CLOSE_SPAWNS = 3;
+    public const int MODE_SYMMETRIC = 4;
+
+    // Obrot o 180 stopni. Na siatce odd-r odpowiada to odbiciu punktowemu we wspolrzednych cube,
+    // wiec zachowuje wszystkie odleglosci heksowe.
+    Vector3Int Mirror(Vector3Int p) => new Vector3Int(width - 1 - p.x, height - 1 - p.y, 0);
+
     [Header("Debug")]
     [SerializeField] private List<HexCell> debugCells = new List<HexCell>();
     public IReadOnlyList<HexCell> DebugCells => debugCells;
@@ -61,7 +75,7 @@ public class HexMapGenerator : MonoBehaviour
 
         GenerateMap();
         GeneratePlayerSpawns();
-        //GenerateMines();
+        if (mapMode == MODE_RICH_ZONE) ApplyRichZoneBias();
 
         RefreshDebugList();
 
@@ -70,6 +84,12 @@ public class HexMapGenerator : MonoBehaviour
 
     void GenerateMap()
     {
+        if (mapMode == MODE_SYMMETRIC)
+        {
+            GenerateSymmetricMap();
+            return;
+        }
+
         cells.Clear();
         tilemap.ClearAllTiles();
 
@@ -106,6 +126,77 @@ public class HexMapGenerator : MonoBehaviour
         }
 
         AssignPopulationTiers(landCells);
+    }
+
+    // Mapa wzorcowa: kazde pole i jego obraz w obrocie o 180 stopni dostaja identyczna wode
+    // i identyczna populacje. Obie bazy sa swoimi obrazami, wiec warunki startowe sa tozsame.
+    void GenerateSymmetricMap()
+    {
+        cells.Clear();
+        tilemap.ClearAllTiles();
+
+        // 400 pol tworzy 200 rozlacznych par - zadne pole nie jest wlasnym obrazem
+        List<Vector3Int> reprezentanci = new List<Vector3Int>();
+        HashSet<Vector3Int> juzWpazre = new HashSet<Vector3Int>();
+        for (int x = 0; x < width; x++)
+            for (int y = 0; y < height; y++)
+            {
+                Vector3Int p = new Vector3Int(x, y, 0);
+                if (juzWpazre.Contains(p)) continue;
+                reprezentanci.Add(p);
+                juzWpazre.Add(p);
+                juzWpazre.Add(Mirror(p));
+            }
+
+        Shuffle(reprezentanci);
+
+        int parWody = Mathf.Clamp(Mathf.RoundToInt(waterProbability * width * height) / 2, 0, reprezentanci.Count);
+        int[] tiers = BuildPopulationTiers();
+        int parLadu = reprezentanci.Count - parWody;
+
+        for (int i = 0; i < reprezentanci.Count; i++)
+        {
+            bool woda = i < parWody;
+            int populacja = woda ? 0 : tiers[(i - parWody) % tiers.Length];
+
+            foreach (var p in new[] { reprezentanci[i], Mirror(reprezentanci[i]) })
+            {
+                tilemap.SetTile(p, woda ? waterTile : grassTile);
+                cells[p] = new HexCell
+                {
+                    coord = p,
+                    isWater = woda,
+                    passable = !woda,
+                    ownerId = 0,
+                    hasMine = false,
+                    isSpawn = false,
+                    populationNumber = populacja
+                };
+            }
+        }
+
+        Debug.LogWarning($"=== [MAPA WZORCOWA] symetria obrotowa 180 stopni: {parWody} par wody, {parLadu} par ladu ===");
+    }
+
+    // Mapa zepsuta: najbogatsze pola skupione wokol bazy 1, najubozsze wokol bazy 2
+    void ApplyRichZoneBias()
+    {
+        List<HexCell> lad = new List<HexCell>();
+        foreach (var c in cells.Values)
+            if (!c.isWater && c.passable) lad.Add(c);
+
+        lad.Sort((a, b) => HexDistanceOddR(a.coord, spawnPosPlayer1)
+                            .CompareTo(HexDistanceOddR(b.coord, spawnPosPlayer1)));
+
+        int[] tiers = BuildPopulationTiers();
+        int naProg = Mathf.Max(1, lad.Count / tiers.Length);
+        for (int i = 0; i < lad.Count; i++)
+        {
+            int prog = Mathf.Min(tiers.Length - 1, i / naProg);
+            lad[i].populationNumber = tiers[tiers.Length - 1 - prog];   // najblizej bazy 1 = najbogatsze
+        }
+
+        Debug.LogWarning("=== [MAPA ZEPSUTA] bogata strefa skupiona przy bazie 1 ===");
     }
 
     // Piec progow populacji jako rowne czesci population_max, kazdy na 20% pol ladowych
@@ -153,6 +244,17 @@ public class HexMapGenerator : MonoBehaviour
             return;
         }
 
+        // Tryby kontrolne wybieraja bazy wedlug wlasnych regul
+        if (mapMode != MODE_NORMAL && mapMode != MODE_RICH_ZONE)
+        {
+            if (TryPickSpawnsForMode(candidates, out var a, out var b))
+            {
+                FinalizeSpawns(a, b);
+                return;
+            }
+            Debug.LogWarning($"=== [MAPA] tryb {mapMode} nie znalazl pary baz - uzywam doboru normalnego ===");
+        }
+
         // 1) Losujemy spawn1 z dobrych kandydat�w
         HexCell spawn1 = candidates[Random.Range(0, candidates.Count)];
 
@@ -187,7 +289,11 @@ public class HexMapGenerator : MonoBehaviour
         if (Random.value < 0.5f)
             (spawn1, spawn2) = (spawn2, spawn1);
 
-        // Ustawiamy stan
+        FinalizeSpawns(spawn1, spawn2);
+    }
+
+    void FinalizeSpawns(HexCell spawn1, HexCell spawn2)
+    {
         spawn1.isSpawn = true;
         spawn2.isSpawn = true;
         spawn1.ownerId = 1;
@@ -196,11 +302,65 @@ public class HexMapGenerator : MonoBehaviour
         spawnPosPlayer1 = spawn1.coord;
         spawnPosPlayer2 = spawn2.coord;
 
-        // Podmieniamy tile na spawnTile
         tilemap.SetTile(spawn1.coord, spawnTile);
         tilemap.SetTile(spawn2.coord, spawnTile);
 
         Debug.Log($"Spawn1: {spawn1.coord}, Spawn2: {spawn2.coord}, dist = {HexDistanceOddR(spawn1.coord, spawn2.coord)}");
+    }
+
+    // Dobor baz dla trybow kontrolnych
+    bool TryPickSpawnsForMode(List<HexCell> candidates, out HexCell a, out HexCell b)
+    {
+        a = null; b = null;
+        Vector3Int srodek = new Vector3Int(width / 2, height / 2, 0);
+
+        if (mapMode == MODE_SYMMETRIC)
+        {
+            // Baza 2 jest obrazem bazy 1 w obrocie o 180 stopni - warunki startowe identyczne
+            List<HexCell> ok = new List<HexCell>();
+            foreach (var c in candidates)
+                if (cells.TryGetValue(Mirror(c.coord), out var m) && m.passable && !m.isWater
+                    && HexDistanceOddR(c.coord, m.coord) >= minSpawnDistance)
+                    ok.Add(c);
+
+            if (ok.Count == 0) return false;
+            a = ok[Random.Range(0, ok.Count)];
+            b = cells[Mirror(a.coord)];
+            return a != b;
+        }
+
+        if (mapMode == MODE_CORNER)
+        {
+            // Baza 1 w centrum, baza 2 zepchnieta maksymalnie na peryferie
+            HexCell blisko = null, daleko = null;
+            int dMin = int.MaxValue, dMax = -1;
+            foreach (var c in candidates)
+            {
+                int d = HexDistanceOddR(c.coord, srodek);
+                if (d < dMin) { dMin = d; blisko = c; }
+                if (d > dMax) { dMax = d; daleko = c; }
+            }
+            a = blisko; b = daleko;
+            return a != null && b != null && a != b;
+        }
+
+        if (mapMode == MODE_CLOSE_SPAWNS)
+        {
+            // Bazy tuz obok siebie - brak fazy spokojnego rozwoju
+            HexCell start = candidates[Random.Range(0, candidates.Count)];
+            HexCell najblizszy = null;
+            int dMin = int.MaxValue;
+            foreach (var c in candidates)
+            {
+                if (c == start) continue;
+                int d = HexDistanceOddR(start.coord, c.coord);
+                if (d >= 2 && d < dMin) { dMin = d; najblizszy = c; }
+            }
+            a = start; b = najblizszy;
+            return b != null;
+        }
+
+        return false;
     }
 
 
@@ -435,6 +595,7 @@ public class HexMapGenerator : MonoBehaviour
         IsGenerated = false;
         GenerateMap();
         GeneratePlayerSpawns();
+        if (mapMode == MODE_RICH_ZONE) ApplyRichZoneBias();
         RefreshDebugList();
         IsGenerated = true;
     }
