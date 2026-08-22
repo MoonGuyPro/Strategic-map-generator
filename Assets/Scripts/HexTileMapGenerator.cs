@@ -181,6 +181,12 @@ public class HexMapGenerator : MonoBehaviour
             ? farEnough[Random.Range(0, farEnough.Count)]
             : farthest;
 
+        // Spawn1 losowany jest swobodnie, a spawn2 tylko sposrod pol odleglych o minSpawnDistance,
+        // przez co spawn2 ladowal srednio 1,6 heksa blizej krawedzi mapy. Zamiana z p=0,5 wyrownuje
+        // rozklady obu pozycji i usuwa systematyczna przewage bazy nr 1.
+        if (Random.value < 0.5f)
+            (spawn1, spawn2) = (spawn2, spawn1);
+
         // Ustawiamy stan
         spawn1.isSpawn = true;
         spawn2.isSpawn = true;
@@ -396,6 +402,34 @@ public class HexMapGenerator : MonoBehaviour
         }
     }
     
+    // Czysci wlascicieli i garnizony, zachowujac uklad wody, populacje i pozycje baz.
+    // Pozwala rozegrac ten sam teren drugi raz - potrzebne przy pomiarze przewagi pierwszego ruchu.
+    public void ResetOwnershipKeepLayout()
+    {
+        foreach (var cell in cells.Values)
+        {
+            cell.ownerId = 0;
+            cell.army = 0;
+            cell.isSpawn = false;
+            tilemap.SetTile(cell.coord, cell.isWater ? waterTile : grassTile);
+        }
+
+        if (cells.TryGetValue(spawnPosPlayer1, out var s1))
+        {
+            s1.isSpawn = true;
+            s1.ownerId = 1;
+            tilemap.SetTile(s1.coord, spawnTile);
+        }
+        if (cells.TryGetValue(spawnPosPlayer2, out var s2))
+        {
+            s2.isSpawn = true;
+            s2.ownerId = 2;
+            tilemap.SetTile(s2.coord, spawnTile);
+        }
+
+        RefreshDebugList();
+    }
+
     public void RerunMapGeneration()
     {
         IsGenerated = false;

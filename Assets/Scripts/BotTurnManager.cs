@@ -44,6 +44,7 @@ public class BotTurnManager : MonoBehaviour
     private class PythonInputBatch
     {
         public PythonInputRecipe[] recipes;
+        public bool pairedFirstMove;
     }
 
     [System.Serializable]
@@ -98,6 +99,8 @@ public class BotTurnManager : MonoBehaviour
     private int currentMatchFieldBattles = 0;
     private int currentMatchLeadChanges = 0;
     private int currentMatchLastLead = 0;
+    private int currentMatchStartingBotId = 0;
+    private bool pairedFirstMove = false;
     private float currentMatchPeakTerritorialDiff = 0f;
     private float currentMatchPeakGrowthDiff = 0f;
     private float currentMatchPeakMilitaryDiff = 0f;
@@ -152,6 +155,7 @@ public class BotTurnManager : MonoBehaviour
         gameOver = false;
         GameMetricsCollector.Reset(mapGenerator);
         isATurn = randomizeFirstBot ? (Random.Range(0, 2) == 0) : true;
+        currentMatchStartingBotId = isATurn ? botA.botOwnerId : botB.botOwnerId;
         timer = turnInterval;
         initialized = true;
     }
@@ -275,11 +279,12 @@ public class BotTurnManager : MonoBehaviour
         return false;
     }
 
+    // Zwraca 0, gdy zadna baza nie padla - mecz przerwany limitem tur jest remisem, nie wygrana
     int GetWinnerId()
     {
-        int ownerA = mapGenerator.GetOwnerId(botA.SpawnPos);
-        if (ownerA != botA.botOwnerId) return botB.botOwnerId;
-        return botA.botOwnerId;
+        if (mapGenerator.GetOwnerId(botA.SpawnPos) != botA.botOwnerId) return botB.botOwnerId;
+        if (mapGenerator.GetOwnerId(botB.SpawnPos) != botB.botOwnerId) return botA.botOwnerId;
+        return 0;
     }
 
     void HandleGameEnd()
@@ -287,7 +292,7 @@ public class BotTurnManager : MonoBehaviour
         gameOver = true;
         int winnerId = GetWinnerId();
         
-        GameMetricsCollector.SaveGameReport(currentGlobalTurnCount, maxTurnsCap, botA, botB, winnerId, currentMatchFieldBattles, currentMatchLeadChanges);
+        GameMetricsCollector.SaveGameReport(currentGlobalTurnCount, maxTurnsCap, botA, botB, winnerId, currentMatchFieldBattles, currentMatchLeadChanges, currentMatchStartingBotId);
 
         float matchAvgTerritorialImbalance = currentMatchRecordedTurns > 0 ? currentMatchTerritorialImbalanceSum / currentMatchRecordedTurns : 0f;
         batchTerritorialImbalances.Add(matchAvgTerritorialImbalance);
@@ -364,7 +369,13 @@ public class BotTurnManager : MonoBehaviour
                 currentMatchPeakMilitaryDiff = 0f;
                 previousCellOwners.Clear();
 
-                mapGenerator.RerunMapGeneration();
+                // W trybie parowanym kazda mapa rozgrywana jest dwa razy - raz z kazda kolejnoscia.
+                // Nieparzysty mecz generuje nowa mape, parzysty powtarza ja z odwrocona kolejnoscia.
+                bool nowaMapa = !pairedFirstMove || (currentBatchIndex % 2 == 1);
+                if (nowaMapa)
+                    mapGenerator.RerunMapGeneration();
+                else
+                    mapGenerator.ResetOwnershipKeepLayout();
                 yield return null;
 
                 botA.ResetBotState();
@@ -374,7 +385,9 @@ public class BotTurnManager : MonoBehaviour
                 currentGlobalTurnCount = 0;
                 gameOver = false;
                 GameMetricsCollector.Reset(mapGenerator);
-                isATurn = randomizeFirstBot ? (Random.Range(0, 2) == 0) : true;
+                // Sztywna naprzemiennosc zamiast losowania: dokladnie polowa meczow na kazda kolejnosc
+                isATurn = (currentBatchIndex % 2 == 0);
+                currentMatchStartingBotId = isATurn ? botA.botOwnerId : botB.botOwnerId;
 
                 while (!gameOver && currentGlobalTurnCount < maxTurnsCap)
                 {
@@ -468,7 +481,12 @@ public class BotTurnManager : MonoBehaviour
         // Format docelowy: {"recipes":[...]}. Pojedynczy obiekt obslugiwany dla zgodnosci wstecz.
         PythonInputBatch batch = JsonUtility.FromJson<PythonInputBatch>(jsonText);
         if (batch != null && batch.recipes != null && batch.recipes.Length > 0)
+        {
+            pairedFirstMove = batch.pairedFirstMove;
+            if (pairedFirstMove)
+                Debug.LogWarning("=== [UNITY] TRYB PAROWANY: kazda mapa rozgrywana dwa razy, raz z kazda kolejnoscia ===");
             return batch.recipes;
+        }
 
         PythonInputRecipe single = JsonUtility.FromJson<PythonInputRecipe>(jsonText);
         if (single != null && single.populationToCreateNewUnit > 0)

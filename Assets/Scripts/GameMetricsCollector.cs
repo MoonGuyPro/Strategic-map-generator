@@ -107,7 +107,7 @@ public static class GameMetricsCollector
         if (milDiff > peakMilitaryDiff) peakMilitaryDiff = milDiff;
     }
 
-    public static void SaveGameReport(int finalTurns, int maxTurns, BotController botA, BotController botB, int winnerId, int fieldBattles, int leadChanges)
+    public static void SaveGameReport(int finalTurns, int maxTurns, BotController botA, BotController botB, int winnerId, int fieldBattles, int leadChanges, int startingBotId)
     {
         // Obliczanie średnich wartości dla metryk z artykułu
         float avgTerritorialImbalance = CalculateAverage(territorialImbalances);
@@ -138,9 +138,12 @@ public static class GameMetricsCollector
         using (StreamWriter writer = new StreamWriter(fullPath))
         {
             writer.WriteLine("==================================================");
-            writer.WriteLine($"RAPORT Z ROZGRYWKI - ZWYCIEZCA: BOT {winnerId}");
+            writer.WriteLine(winnerId == 0
+                ? "RAPORT Z ROZGRYWKI - REMIS (limit tur, zadna baza nie padla)"
+                : $"RAPORT Z ROZGRYWKI - ZWYCIEZCA: BOT {winnerId}");
             writer.WriteLine("==================================================");
             writer.WriteLine($"Liczba rozegranych tur: {finalTurns} / {maxTurns} ({gameLengthPercentage:F2}%)");
+            writer.WriteLine($"Pierwszy ruch wykonal: BOT {startingBotId}");
             writer.WriteLine($"Conquering Rate (Podbite pola na koniec): {conqueringRate:F2}%");
             writer.WriteLine($"Reconquering Rate (Wskaznik odbijania): {reconqueringRate:F2}%");
             writer.WriteLine($"Field Battles (Bitwy polowe token vs token): {fieldBattles}");
