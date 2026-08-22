@@ -198,7 +198,103 @@ jest wynik.
 
 ---
 
-## 6. Weryfikacja — plan po sugestii promotora
+## 6. Poprawność eksperymentu — trzy problemy wykryte analizą statystyczną
+
+Bardzo mocny materiał na rozdział metodologiczny. Pokazuje, że wyniki były weryfikowane,
+a nie brane na wiarę — i że **analiza danych wykryła wady niewidoczne przy czytaniu kodu**.
+
+### 6.1. Remisy zapisywane jako zwycięstwa
+
+17,1 % meczów (341 z 2000) kończy się limitem tur, bez zdobycia którejkolwiek bazy. Funkcja
+wyznaczająca zwycięzcę zwracała w takiej sytuacji zawsze tego samego bota, więc **340 z 341
+remisów zapisano jako jego wygrane**. Błąd nie wpływał na metryki rozmyte (te nie patrzą na
+zwycięzcę), ale fałszował każdą analizę skuteczności. Naprawiony — remis jest teraz osobnym wynikiem.
+
+### 6.2. Systematyczna przewaga bazy nr 1
+
+Wykryta w danych, nie w kodzie. Na 1659 rozstrzygniętych meczów baza nr 1 wygrywała **55,8 %**,
+co daje odchylenie **4,7 sigma** od równowagi.
+
+Przyczyna leżała w procedurze losowania: pierwsza baza wybierana była swobodnie spośród wszystkich
+kandydatów, a druga **tylko spośród pól odległych o co najmniej `minSpawnDistance`**. Ten warunek
+systematycznie spychał ją na peryferie mapy. Symulacja 3000 generacji potwierdziła:
+
+| | baza 1 | baza 2 |
+|---|---:|---:|
+| średni dystans do środka mapy | 7,14 | **8,71** (+1,56 heksa, 23,7 sigma) |
+| pól lądowych w promieniu 3 | 31,69 | **29,92** (o 6 % mniej) |
+
+Naprawa: po wylosowaniu obu pozycji następuje ich zamiana z prawdopodobieństwem 50 %, co wyrównuje
+rozkłady. Efekt potwierdzony pomiarem: **48,4 %, odchylenie 0,4 sigma**.
+
+To jest gotowy przykład na to, że symetria rozstawienia nie bierze się sama z siebie — nawet przy
+losowym generatorze trzeba jej pilnować.
+
+### 6.3. Przewaga pierwszego ruchu — odpowiedź na artykuł Adamsa
+
+Ernest Adams w „Designer's Notebook: A Symmetry Lesson" zwraca uwagę, że **sama symetria
+geometryczna planszy nie wystarcza**, bo gracz wykonujący pierwszy ruch zyskuje przewagę tempa.
+Wymienia trzy sposoby jej kompensowania. Warto pokazać, że badana gra ma wszystkie trzy:
+
+| mechanizm wg Adamsa | realizacja w tej grze |
+|---|---|
+| ograniczenie siły pierwszego ruchu / rozstawienie uniemożliwiające natychmiastowe zagrożenie | `minSpawnDistance` 8–18 heksów; oddział pokonuje 1 heks na swoją turę, więc pierwszy kontakt następuje po kilkudziesięciu turach |
+| wydłużenie rozgrywki | mecze trwają 300–450 tur, jedna tura to 0,25 % partii |
+| losowość | mnożnik strat w walce 0,8–1,2, losowa mapa, losowe bazy, naprzemienna kolejność |
+
+**Projekt eksperymentu (wart opisania osobno).** Zastosowano porównanie parowane: każda mapa
+rozgrywana jest dwukrotnie — raz zaczyna bot 1, raz bot 2 — przy identycznym terenie, rozkładzie
+populacji i pozycjach baz. Eliminuje to zmienność map, która w zwykłym pomiarze jest 2,6 raza
+większa od badanego efektu. Wykonano 100 par, czyli 200 meczów.
+
+**Wynik 1 — statystyki mapy nie zależą od tego, kto zaczyna.** Wszystkie osiem metryk mieści się
+w granicach szumu (odchylenia 0,3–0,8 sigma):
+
+| metryka | zaczynał bot 1 | zaczynał bot 2 | różnica | sigma |
+|---|---:|---:|---:|---:|
+| Territorial imbalance | 16,09 | 15,61 | +0,47 | 0,5 |
+| Growth imbalance | 21,84 | 20,99 | +0,85 | 0,7 |
+| Military imbalance | 22,65 | 22,36 | +0,29 | 0,3 |
+| Reconquering rate | 71,88 | 75,26 | −3,39 | 0,8 |
+| Conquering rate | 96,90 | 97,80 | −0,90 | 0,6 |
+| Zmiany prowadzenia /100 tur | 2,26 | 2,06 | +0,20 | 0,5 |
+| Bitwy polowe | 37,01 | 38,40 | −1,39 | 0,7 |
+| Liczba tur | 332,3 | 341,3 | −9,03 | 0,8 |
+
+To uzasadnia, że przy ocenie chromosomów nie trzeba rozdzielać wyników według kolejności ruchu.
+
+**Wynik 2 — nie wykryto przewagi w skuteczności.** Bot zaczynający wygrał 53,6 % z 192
+rozstrzygniętych meczów, odchylenie 1,0 sigma.
+
+**Uczciwe zastrzeżenie do zapisania w pracy:** przy 192 meczach błąd standardowy wynosi 3,6 punktu,
+więc test wykrywa dopiero przewagę powyżej 57 %. Poprawne sformułowanie brzmi „nie wykryto przewagi
+pierwszego ruchu", a nie „przewagi nie ma". Rozstrzygnięcie wymagałoby około 400 par.
+
+### 6.4. Ile z wyniku pochodzi z mapy, a ile z losu
+
+Eksperyment parowany pozwala rozłożyć zmienność na dwie części, bo dysponujemy dwoma przebiegami
+na **identycznym** terenie.
+
+| metryka | sd między meczami | sd z MAPY | sd z LOSU | udział mapy |
+|---|---:|---:|---:|---:|
+| Territorial imbalance | 9,39 | 5,85 | 7,34 | **39 %** |
+| Growth imbalance | 12,01 | 8,75 | 8,23 | **53 %** |
+| Military imbalance | 10,84 | 7,19 | 8,11 | **44 %** |
+| Reconquering rate | 38,35 | 21,61 | 31,68 | **32 %** |
+| Liczba tur | 84,62 | 29,30 | 79,38 | **12 %** |
+
+**Mapa wyjaśnia jedynie od 12 do 53 % różnic między meczami.** Pozostała część to losowość samej
+symulacji: mnożnik strat w walce oraz zależność dalszego przebiegu od pojedynczych rozstrzygnięć.
+Ta sama mapa rozegrana dwukrotnie potrafi dać mecz 250-turowy i 450-turowy.
+
+Wniosek do dyskusji w pracy — **napięcie projektowe**: losowość walk skutecznie tłumi przewagę
+pierwszego ruchu, zgodnie z zaleceniem Adamsa, ale jednocześnie zaszumia ocenę jakości mapy. Ten
+sam mechanizm pomaga w jednym celu i szkodzi w drugim. To także wyjaśnia, dlaczego pojedynczy mecz
+jest bezużyteczny jako miara jakości mapy i dlaczego potrzeba ich kilkudziesięciu.
+
+---
+
+## 7. Weryfikacja — plan po sugestii promotora
 
 Promotor ma rację i to jest najsłabszy obecnie punkt pracy: **wiemy, że metryki różnicują mapy,
 ale nie wiemy, czy różnicują je zgodnie z ludzką oceną**.
@@ -255,7 +351,7 @@ Współczynnik korelacji rzędu 0,6–0,7 byłby bardzo mocnym argumentem.
 
 ---
 
-## 7. Liczby, które warto mieć pod ręką
+## 8. Liczby, które warto mieć pod ręką
 
 | Wielkość | Wartość |
 |---|---|
@@ -266,13 +362,17 @@ Współczynnik korelacji rzędu 0,6–0,7 byłby bardzo mocnym argumentem.
 | Rozpiętość ocen przed kalibracją | balans 0,19 · dynamizm 0,02 |
 | Rozpiętość ocen po kalibracji | balans 0,70 · dynamizm 0,70 |
 | Korelacja balans ↔ dynamizm | +0,54 do +0,60 |
+| Udział mapy w zmienności wyniku | 12–53 % (reszta to losowość symulacji) |
+| Przewaga pierwszego ruchu | 53,6 % zwycięstw, 1,0 sigma — nie wykryto |
+| Przewaga pozycyjna bazy nr 1 | 55,8 % przed poprawką → 48,4 % po |
+| Meczów kończących się remisem | 17,1 % |
 | Reguł w bazie balansu | 27 (komplet 3³) |
 | Reguł w bazie dynamizmu | 18 (2 × 3 × 3) |
 | Błąd średniej przy 20 meczach | terytorium ±2,0 · gospodarka ±2,5 · odbijanie ±9,7 |
 
 ---
 
-## 8. Pułapki i rzeczy, o których łatwo zapomnieć
+## 9. Pułapki i rzeczy, o których łatwo zapomnieć
 
 - **Opisz kompletność baz reguł.** Pierwotna baza balansu miała luki — dla 32% możliwych wyników
   żadna reguła się nie aktywowała, co kończyło się błędem. Opisanie, jak to wykryto i naprawiono
@@ -292,6 +392,10 @@ Współczynnik korelacji rzędu 0,6–0,7 byłby bardzo mocnym argumentem.
 
 - **Napisz, czego generator nie potrafi.** Nie steruje topografią, nie tworzy przesmyków ani
   spójnych lądów o zaplanowanym kształcie. To uczciwe ograniczenie i naturalny kierunek rozwoju.
+
+- **Rozdziel „nie wykryto" od „nie ma".** Przy każdym wyniku nieistotnym statystycznie podaj, jak
+  duży efekt test w ogóle był w stanie wykryć. Dla przewagi pierwszego ruchu przy 192 meczach była
+  to granica 57 % — poniżej niej test jest ślepy.
 
 - **Zachowaj surowe dane.** `pilotaz_wyniki.json` i katalog `Wyniki_Batch` to materiał dowodowy pod
   każdą liczbę w pracy. Warto je zarchiwizować razem z wersją kodu, która je wygenerowała.
