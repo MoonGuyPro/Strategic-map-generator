@@ -102,9 +102,17 @@ public class BotTurnManager : MonoBehaviour
     private int currentMatchLastLead = 0;
     private int currentMatchStartingBotId = 0;
     private bool pairedFirstMove = false;
-    private float currentMatchPeakTerritorialDiff = 0f;
-    private float currentMatchPeakGrowthDiff = 0f;
-    private float currentMatchPeakMilitaryDiff = 0f;
+    // Peak Differences wg wzoru (7) z artykulu zrodlowego (Lara-Cabrera i in., Natural Computing 2014):
+    // amplituda wahniecia przewagi, czyli max(d) - min(d) przy roznicy ZE ZNAKIEM d = (f1-f2)/(f1+f2).
+    // Mecz startuje symetrycznie (d = 0), wiec min <= 0 <= max i inicjalizacja zerami jest poprawna.
+    // Zakres 0-2, eksportowany jako 0-200%. Wczesniej liczono maksimum MODULU roznicy (zakres 0-1),
+    // co mierzylo glebokosc dominacji zamiast amplitudy zwrotu akcji.
+    private float currentMatchTerritorialDiffMin = 0f;
+    private float currentMatchTerritorialDiffMax = 0f;
+    private float currentMatchGrowthDiffMin = 0f;
+    private float currentMatchGrowthDiffMax = 0f;
+    private float currentMatchMilitaryDiffMin = 0f;
+    private float currentMatchMilitaryDiffMax = 0f;
     private Dictionary<Vector3Int, int> previousCellOwners = new Dictionary<Vector3Int, int>();
 
     private System.Collections.IEnumerator Start()
@@ -147,9 +155,9 @@ public class BotTurnManager : MonoBehaviour
         currentMatchFieldBattles = 0;
         currentMatchLeadChanges = 0;
         currentMatchLastLead = 0;
-        currentMatchPeakTerritorialDiff = 0f;
-        currentMatchPeakGrowthDiff = 0f;
-        currentMatchPeakMilitaryDiff = 0f;
+        currentMatchTerritorialDiffMin = 0f; currentMatchTerritorialDiffMax = 0f;
+        currentMatchGrowthDiffMin = 0f; currentMatchGrowthDiffMax = 0f;
+        currentMatchMilitaryDiffMin = 0f; currentMatchMilitaryDiffMax = 0f;
         previousCellOwners.Clear();
 
         currentGlobalTurnCount = 0;
@@ -241,9 +249,16 @@ public class BotTurnManager : MonoBehaviour
             float currentTermImbalance = Mathf.Abs(pctA - pctB);
             currentMatchTerritorialImbalanceSum += currentTermImbalance;
 
-            // Wyznaczanie najwyższego punktu kulminacyjnego przewagi (Peak)
-            if (currentTermImbalance > currentMatchPeakTerritorialDiff)
-                currentMatchPeakTerritorialDiff = currentTermImbalance;
+            // Peak wg wzoru (7): roznica ZE ZNAKIEM, znormalizowana przez stan posiadania obu botow.
+            // (pctA-pctB)/(pctA+pctB) = (ownedA-ownedB)/(ownedA+ownedB) - mianownik z calej planszy sie skraca,
+            // dzieki czemu wszystkie trzy piki maja teraz identyczna normalizacje, tak jak w artykule.
+            int ownedSum = ownedA + ownedB;
+            if (ownedSum > 0)
+            {
+                float dTer = (float)(ownedA - ownedB) / ownedSum;
+                if (dTer > currentMatchTerritorialDiffMax) currentMatchTerritorialDiffMax = dTer;
+                if (dTer < currentMatchTerritorialDiffMin) currentMatchTerritorialDiffMin = dTer;
+            }
 
             // Zmiana prowadzenia: remis nie liczy sie jako zwrot, tylko faktyczne przejecie prowadzenia
             int lead = ownedA > ownedB ? 1 : (ownedB > ownedA ? -1 : 0);
@@ -258,13 +273,23 @@ public class BotTurnManager : MonoBehaviour
             float totalProd = prodA + prodB;
             float growthImb = totalProd > 0 ? (Mathf.Abs((float)prodA - prodB) / totalProd) * 100f : 0f;
             currentMatchGrowthImbalanceSum += growthImb;
-            if (growthImb > currentMatchPeakGrowthDiff) currentMatchPeakGrowthDiff = growthImb;
+            if (totalProd > 0)
+            {
+                float dGro = ((float)prodA - prodB) / totalProd;
+                if (dGro > currentMatchGrowthDiffMax) currentMatchGrowthDiffMax = dGro;
+                if (dGro < currentMatchGrowthDiffMin) currentMatchGrowthDiffMin = dGro;
+            }
 
             // Procentowa dysproporcja siły militarnej
             float totalArmy = totalArmyA + totalArmyB;
             float milImb = totalArmy > 0 ? (Mathf.Abs((float)totalArmyA - totalArmyB) / totalArmy) * 100f : 0f;
             currentMatchMilitaryImbalanceSum += milImb;
-            if (milImb > currentMatchPeakMilitaryDiff) currentMatchPeakMilitaryDiff = milImb;
+            if (totalArmy > 0)
+            {
+                float dMil = ((float)totalArmyA - totalArmyB) / totalArmy;
+                if (dMil > currentMatchMilitaryDiffMax) currentMatchMilitaryDiffMax = dMil;
+                if (dMil < currentMatchMilitaryDiffMin) currentMatchMilitaryDiffMin = dMil;
+            }
 
             currentMatchRecordedTurns++;
         }
@@ -317,14 +342,22 @@ public class BotTurnManager : MonoBehaviour
         float conqRate = totalLand > 0 ? ((float)finalCaptured / totalLand) * 100f : 0f;
         batchConqueringRates.Add(conqRate);
 
-        float reconqRate = totalLand > 0 ? ((float)currentMatchReconquers / totalLand) * 100f : 0f;
+        // Reconquering Rate wg wzoru (6): Z = (1/tau) * suma(zeta_j / n_p), czyli SREDNIA NA TURE.
+        // Eksportowane jako "procent pol zmieniajacych wlasciciela na 100 tur" (Z * 10000), zeby liczby
+        // byly czytelne. Bez dzielenia przez tury metryka rosla wprost z dlugoscia meczu.
+        float reconqRate = (totalLand > 0 && currentMatchRecordedTurns > 0)
+            ? ((float)currentMatchReconquers / totalLand) * 100f / currentMatchRecordedTurns * 100f
+            : 0f;
         batchReconqueringRates.Add(reconqRate);
 
-        float peakTerPct = currentMatchPeakTerritorialDiff * 100f;
+        // Amplituda wahniecia przewagi (wzor 7), zakres 0-2 przeskalowany na 0-200%
+        float peakTerPct = (currentMatchTerritorialDiffMax - currentMatchTerritorialDiffMin) * 100f;
+        float peakGroPct = (currentMatchGrowthDiffMax - currentMatchGrowthDiffMin) * 100f;
+        float peakMilPct = (currentMatchMilitaryDiffMax - currentMatchMilitaryDiffMin) * 100f;
         batchPeakDifferences.Add(peakTerPct);
-        batchPeakGrowthDiffs.Add(currentMatchPeakGrowthDiff);
-        batchPeakMilitaryDiffs.Add(currentMatchPeakMilitaryDiff);
-        batchPeakAverages.Add((peakTerPct + currentMatchPeakGrowthDiff + currentMatchPeakMilitaryDiff) / 3f);
+        batchPeakGrowthDiffs.Add(peakGroPct);
+        batchPeakMilitaryDiffs.Add(peakMilPct);
+        batchPeakAverages.Add((peakTerPct + peakGroPct + peakMilPct) / 3f);
         batchFieldBattles.Add(currentMatchFieldBattles);
         batchLeadChanges.Add(currentMatchLeadChanges);
         batchLeadChangeRates.Add(currentGlobalTurnCount > 0 ? currentMatchLeadChanges * 100f / currentGlobalTurnCount : 0f);
@@ -365,9 +398,9 @@ public class BotTurnManager : MonoBehaviour
                 currentMatchFieldBattles = 0;
                 currentMatchLeadChanges = 0;
                 currentMatchLastLead = 0;
-                currentMatchPeakTerritorialDiff = 0f;
-                currentMatchPeakGrowthDiff = 0f;
-                currentMatchPeakMilitaryDiff = 0f;
+                currentMatchTerritorialDiffMin = 0f; currentMatchTerritorialDiffMax = 0f;
+                currentMatchGrowthDiffMin = 0f; currentMatchGrowthDiffMax = 0f;
+                currentMatchMilitaryDiffMin = 0f; currentMatchMilitaryDiffMax = 0f;
                 previousCellOwners.Clear();
 
                 // W trybie parowanym kazda mapa rozgrywana jest dwa razy - raz z kazda kolejnoscia.

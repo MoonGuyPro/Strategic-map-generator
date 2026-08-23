@@ -18,9 +18,17 @@ uruchamiać poszczególne elementy i co zostało do zrobienia.
 Praca magisterska: **zastosowanie NSGA-II i metryk balansu oraz dynamiki do proceduralnego
 generowania map dla gier strategicznych**.
 
-Artykuł źródłowy: Lara-Cabrera, Nogueira-Collazo, Cotta, Fernández-Leiva, *Procedural Content
-Generation for Real-Time Strategy Games*, IJIMAI 2015. Autorzy oceniali mapy do gry Planet Wars
-za pomocą siedmiu metryk i logiki rozmytej, a optymalizowali je algorytmem NSGA-II.
+**Artykuł źródłowy (właściwy):** Lara-Cabrera, Cotta, Fernández-Leiva, *On Balance and Dynamism in
+Procedural Content Generation with Self-Adaptive Evolutionary Algorithms*, **Natural Computing 2014**.
+Zawiera pełne wzory metryk, bazy reguł i wyniki. **Metodę opisuj stąd i stąd bierz cytaty.**
+
+Artykuł przeglądowy: Lara-Cabrera, Nogueira-Collazo, Cotta, Fernández-Leiva, *Procedural Content
+Generation for Real-Time Strategy Games*, IJIMAI 2015 — te same wnioski w skrócie, bez wzorów.
+Projekt powstawał początkowo na jego podstawie, stąd kilka rozbieżności wykrytych dopiero po
+lekturze wersji pełnej (`WSKAZOWKI_DO_PRACY.md` rozdz. 11 i 12).
+
+Autorzy oceniali mapy do gry Planet Wars za pomocą siedmiu metryk i logiki rozmytej, a optymalizowali
+je algorytmem NSGA-II.
 
 Ten projekt przenosi tę metodę na **własną grę turową na siatce heksagonalnej** (Unity, C#),
 w której rywalizują dwa identyczne boty. Python steruje eksperymentem i liczy oceny rozmyte.
@@ -79,12 +87,12 @@ każdego chromosomu byłoby nie do przyjęcia czasowo.
 
 | plik / katalog | zawartość |
 |---|---|
-| `pilotaz_wyniki.json` | 50 konfiguracji × 60 metryk — podstawa kalibracji progów |
+| `pilotaz_wyniki.json` | 50 konfiguracji × 60 meczów, wszystkie metryki — podstawa kalibracji progów |
 | `mapy_kontrolne_wyniki.json` | wyniki weryfikacji na mapach kontrolnych |
 | `granice_genow_wyniki.json` | przemiat poza granicami zakresów genów (kontrola metodologiczna) |
-| `Wyniki_Batch/` | raport tekstowy z każdego meczu (~2400 plików) |
-| `nsga2_front.json` / `.csv` | front Pareto po zakończeniu optymalizacji |
-| `nsga2_postep.json` | stan po każdym pokoleniu (zabezpieczenie przed przerwaniem) |
+| `Wyniki_Batch/` | raport tekstowy z każdego meczu (ponad 30 000 plików) |
+| `nsga2_front.json` / `.csv` | front Pareto oraz `historia` — 428 ocen z numerem pokolenia; stąd odtwarza się krzywą hiperobjętości |
+| `nsga2_postep.json` | plik kontrolny nadpisywany co pokolenie — zawiera tylko stan końcowy, nie całą krzywą |
 
 ---
 
@@ -103,7 +111,8 @@ każdego chromosomu byłoby nie do przyjęcia czasowo.
 **Wejścia systemu rozmytego:**
 
 - BALANS ← Territorial Imbalance, Growth Imbalance, Military Imbalance (27 reguł)
-- DYNAMIZM ← zmiany prowadzenia na 100 tur, Reconquering Rate, Peak Differences (18 reguł)
+- DYNAMIZM ← zmiany prowadzenia na 100 tur, Reconquering Rate (6 reguł)
+- **Metryki diagnostyczne** (mierzone i raportowane, poza systemem): Peak Differences, bitwy polowe
 - **Bramki poprawności** (poza systemem): `gameLength ≥ 15 %` oraz `conqueringRate ≥ 60 %`.
   Niespełnienie któregokolwiek → obie oceny zerowe.
 
@@ -118,10 +127,20 @@ Wszystko poniżej jest **wdrożone, przetestowane i opisane w GDD**.
 - [x] Dokładnie 40 pól wody z 400 (stała liczba lądu = 360)
 - [x] Bazy reguł uzupełnione do kompletu (27 i 18 kombinacji, zero dziur)
 - [x] Conquering Rate zdegradowany do bramki poprawności
-- [x] Peak Differences rozszerzone na trzy zasoby i uśrednione; wartość pożądana = ŚREDNIA
+- [x] Peak Differences liczone na trzech zasobach i uśrednione (korelują +0,88 do +0,96)
+- [x] **Peak Differences wdrożone wg wzoru (7) z artykułu** — amplituda wahnięcia `max(d) − min(d)`
+      przy różnicy ZE ZNAKIEM, zamiast maksimum modułu. Przy okazji ujednolicona normalizacja
+      wszystkich trzech pików (wcześniej terytorialny dzielił się przez całą planszę, a pozostałe
+      przez stan posiadania obu botów)
+- [x] **Reconquering Rate wdrożony wg wzoru (6) z artykułu** — średnia na turę zamiast sumy;
+      eksportowany jako „procent pól zmieniających właściciela na 100 tur"
 - [x] Metryka zmian prowadzenia (na 100 tur) jako trzecie wejście dynamizmu
 - [x] Bitwy polowe mierzone jako metryka diagnostyczna (poza systemem rozmytym)
-- [x] Kalibracja progów na kwantylach z 2 × 50 konfiguracji × 20 meczów
+- [x] **Peak Differences przeniesione do metryk diagnostycznych (wariant C)** — baza reguł
+      dynamizmu z 18 na 6, bez utraty rozdzielczosci ocen. Powod zmierzony: +0,930 z nierownowaga
+      terytorialna, ujemnie z odbijaniem i bitwami
+- [x] Kalibracja progów na kwantylach — **przeliczona po zmianie metryk**, 50 konfiguracji × 60
+      meczów, wszystkie progi z jednego odtwarzalnego pliku `pilotaz_wyniki.json`
 - [x] Punkt nasycenia zbioru WYSOKI przesunięty na maksimum z pilotażu
 - [x] Naprawiona definicja siły militarnej (tokeny + garnizon bazy, w procentach)
 - [x] Naprawione raportowanie remisów (17 % meczów było fałszywie przypisywanych)
@@ -176,7 +195,30 @@ wiec czego obcinac. Pelne omowienie w `WSKAZOWKI_DO_PRACY.md` rozdz. 8, dane:
 
 ### Co zostało
 
-- [ ] Opisać wyniki w pracy według `WSKAZOWKI_DO_PRACY.md`
+**Stan systemu oceny po wszystkich zmianach** — zweryfikowany na pilotazu 50 x 60 meczow:
+
+| | |
+|---|---|
+| BALANS | nierownowaga terytorialna, gospodarcza, militarna — 27 regul |
+| DYNAMIZM | wskaznik odbijania, zmiany prowadzenia na 100 tur — 6 regul |
+| bramki | dlugosc gry >= 15 %, wskaznik podboju >= 60 % |
+| diagnostyczne | punkty kulminacyjne, bitwy polowe |
+| zakresy ocen | balans 0,1340–0,8335 · dynamizm 0,1474–0,8650 |
+| korelacja obu ocen | +0,586 |
+
+- [ ] **Pelny przebieg NSGA-II na nowym systemie** — `python nsga2_optymalizacja.py`, okolo 12 godzin.
+      Wyniki z poprzedniego przebiegu liczone sa starymi wzorami, starymi progami i stara baza regul,
+      wiec nie sa porownywalne. Oczekiwanie: optimum sie nie przesunie, bo wyznaczaja je metryki
+      balansu, ktorych wzory sie nie zmienily, a przemiat granic pokazal szeroki plaskowyz.
+      **Po przebiegu zaktualizowac rozdz. 8 wskazowek** (front, hiperobjetosc, optimum) i tabele
+      liczb w rozdz. 9.
+- [ ] **Powtorzyc weryfikacje na mapach kontrolnych** — `python test_mapy_kontrolne.py`, okolo
+      15 minut. Oceny w rozdz. 7 wskazowek pochodza sprzed zmiany metryk i progow.
+- [ ] **Powtorzyc przemiat granic genow** — `python test_granic_genow.py`, okolo 17 minut, jesli
+      chcesz miec rozdz. 8 w calosci na nowych metrykach.
+- [ ] Opisać wyniki w pracy według `WSKAZOWKI_DO_PRACY.md`, w tym **rozdz. 4.5** (pelne porownanie
+      metryk z artykulem) i **rozdz. 4.6** (dlaczego dlugosc gry, wskaznik podboju i punkty
+      kulminacyjne nie sa wejsciami systemu, choc w artykule byly)
 - [ ] Opcjonalnie: rozszerzyć weryfikację o mapy oparte na zasadach projektowych StarCrafta
 - [ ] Opcjonalnie: doprecyzować pomiar przewagi pierwszego ruchu (400 par zamiast 100)
 - [ ] Opcjonalnie: wspólne ziarna losowe dla precyzyjniejszego porównywania chromosomów
@@ -230,10 +272,15 @@ Pełne omówienie w `WSKAZOWKI_DO_PRACY.md`. W skrócie:
 
 1. **Metryki z artykułu nie przenoszą się wprost na inną grę.** Trzy z siedmiu wymagały
    przedefiniowania lub wycofania, bo w tej mechanice mierzyły coś innego, niż zakładali autorzy.
+   Najtwardszy dowód: prog zbioru WYSOKI dla Reconquering Rate wynosi u autorow 0,1 na ture, a caly
+   nasz rozklad miesci sie w przedziale 0,0006–0,0036 — **zero z 50 konfiguracji** osiagneloby ten
+   zbior, wiec kazda mapa dostalaby dynamizm NISKI. Przyczyna: u nich mapa ma 15–30 planet, u nas
+   360 pol, wiec jedno przejecie to 3–7 % kontra 0,28 % mapy. Metryki normalizowane przez liczbe
+   obiektow nie sa przenosne miedzy grami o roznej ziarnistosci mapy.
 
 2. **Balans i dynamizm w tej grze KOOPERUJĄ, a nie konkurują.** Korelacja ocen +0,54 do +0,60,
    potwierdzona na trzech różnych zestawach metryk. W artykule były sprzeczne. Przyczyną jest
-   efekt kuli śnieżnej: przewaga terytorialna napędza gospodarkę ze współczynnikiem 1,23,
+   efekt kuli śnieżnej: przewaga terytorialna napędza gospodarkę ze współczynnikiem 1,14,
    a w grze nie ma mechaniki powrotu. Mapy niezbalansowane są więc automatycznie nudne.
    **To jest główny wynik pracy** — promotor zaakceptował go jako wniosek.
 
