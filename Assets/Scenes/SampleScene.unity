@@ -149,7 +149,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BotTurnManager
   executionMode: 0
-  batchSimulationCount: 20
+  batchSimulationCount: 60
   maxTurnsCap: 500
   botA: {fileID: 1851286722}
   botB: {fileID: 873840219}

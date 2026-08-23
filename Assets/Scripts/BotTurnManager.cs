@@ -10,7 +10,7 @@ public class BotTurnManager : MonoBehaviour
     public GameExecutionMode executionMode = GameExecutionMode.RealTime;
     
     [Tooltip("Ile roznych gier (i nowych map) symulowac w trybie masowym?")]
-    public int batchSimulationCount = 20;
+    public int batchSimulationCount = 60;
     public int maxTurnsCap = 300; // Zabezpieczenie przed nieskończoną grą
 
     [Header("Boty (przypisz w Inspectorze)")]

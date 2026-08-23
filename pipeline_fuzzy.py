@@ -168,7 +168,7 @@ INPUT_FILE = 'map_input.json'
 OUTPUT_FILE = 'metrics_output.json'
 LOG_FILE = 'unity_batch_log.txt'
 
-MECZOW_NA_CHROMOSOM = 20      # musi odpowiadac batchSimulationCount w scenie Unity
+MECZOW_NA_CHROMOSOM = 60      # musi odpowiadac batchSimulationCount w scenie Unity
 SEKUND_NA_MECZ = 20           # zapas czasu przy wyznaczaniu timeoutu
 NARZUT_STARTU_S = 300         # ladowanie edytora i import assetow
 MIN_GAME_LENGTH_PCT = 15.0    # ponizej tej dlugosci mecz uznajemy za rozstrzygniety kula snieznej
