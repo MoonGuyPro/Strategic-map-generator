@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -11,7 +11,7 @@ public class BotTurnManager : MonoBehaviour
     
     [Tooltip("Ile roznych gier (i nowych map) symulowac w trybie masowym?")]
     public int batchSimulationCount = 60;
-    public int maxTurnsCap = 300; // Zabezpieczenie przed nieskończoną grą
+    public int maxTurnsCap = 500; // Zabezpieczenie przed nieskończoną grą; scena nadpisuje ta sama wartoscia (GDD 7.2)
 
     [Header("Boty (przypisz w Inspectorze)")]
     public BotController botA;

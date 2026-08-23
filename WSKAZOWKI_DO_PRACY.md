@@ -423,7 +423,82 @@ rzędu 0,6–0,7 byłby bardzo mocnym argumentem.
 
 ---
 
-## 8. Liczby, które warto mieć pod ręką
+## 8. Wynik główny eksperymentu — NSGA-II
+
+To jest rozdział z wynikami pracy. Przebieg: populacja 20, 25 pokoleń, 60 meczów na ocenę
+chromosomu, **428 ocenionych konfiguracji**, 11,7 godziny obliczeń, zero odrzuceń przez bramki
+poprawności.
+
+### Znalezione optimum
+
+| gen | wartość w najlepszych rozwiązaniach | dozwolony zakres |
+|---|---|---|
+| `population_max` | 93–99 (mediana **99**) | 20–100 |
+| `populationToCreateNewUnit` | 400–619 (mediana **420**) | 400–1000 |
+| `minSpawnDistance` | 8–13 (mediana **10**) | 8–18 |
+
+Przepis na dobrą mapę w tej grze: **bogaty świat, tanie jednostki, umiarkowany dystans startowy.**
+Duża pula zasobów pozwala obu botom rozwinąć się porównywalnie, tanie jednostki zapełniają mapę
+armiami i wymuszają ciągłą walkę.
+
+Front Pareto (4 rozwiązania niezdominowane):
+
+| # | spawnDist | popMax | unitCost | BALANS | DYNAMIZM | teryt % | reconq % |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 10 | 99 | 619 | 0,8422 | 0,8356 | 7,5 | 104,3 |
+| 2 | 10 | 98 | 414 | 0,8409 | 0,8361 | 8,0 | 114,9 |
+| 3 | 10 | 99 | 442 | 0,8380 | 0,8366 | 8,5 | 137,7 |
+| 4 | 13 | 99 | 402 | 0,8350 | 0,8372 | 9,1 | 141,8 |
+
+### Zbieżność
+
+Hiperobjętość: 0,6912 (pok. 1) → 0,7011 (pok. 5) → **0,7051** (pok. 16, dalej płasko do 25).
+
+**99,4 % wyniku osiągnięto w pierwszych 20 % czasu.** Od pokolenia 16 krzywa jest całkowicie
+płaska. Wniosek do opisania: dla tej przestrzeni parametrów 15 pokoleń w zupełności wystarcza.
+Krzywa hiperobjętości z 25 punktami to gotowy wykres do pracy — dane w `nsga2_postep.json`.
+
+### Najważniejszy wniosek: front Pareto to szum, a nie kompromis
+
+Cztery rozwiązania na froncie różnią się balansem o **0,0072**, a dynamizmem o **0,0016**.
+
+Do porównania wzięto 102 chromosomy z tego samego, najlepszego rejonu przestrzeni
+(`popMax ≥ 97`, `unitCost ≤ 460`, `spawn ≤ 13`) — czyli praktycznie ten sam zestaw parametrów —
+i zmierzono rozrzut ich ocen:
+
+| | rozpiętość na froncie | odchylenie standardowe w tym samym rejonie |
+|---|---:|---:|
+| BALANS | 0,0072 | **0,0068** |
+| DYNAMIZM | 0,0016 | **0,0138** |
+
+**Szum pomiarowy jest równy lub większy od całej szerokości frontu.** Cztery rozwiązania są
+statystycznie nierozróżnialne — to, które z nich trafiło na front, jest kwestią losu, a nie jakości.
+
+To nie jest wada implementacji, lecz **empiryczne potwierdzenie wyniku głównego z rozdziału 5**:
+skoro balans i dynamizm w tej mechanice kooperują, nie ma czego kompromisować, więc optymalizacja
+wielokryterialna **degeneruje się do jednokryterialnej**. Front Pareto zapada się do jednego
+punktu, a jego pozorna szerokość pochodzi wyłącznie z niepewności pomiaru.
+
+Ten wniosek warto postawić na równi z wynikiem o kooperacji celów — jest jego bezpośrednią
+konsekwencją operacyjną i ma na poparcie 428 ocen.
+
+### Ograniczenie: dwa geny na krawędzi zakresu
+
+Uwaga metodologiczna, o którą recenzent zapyta na pewno.
+
+- `population_max` = 99 w **138 z 428** chromosomów, przy górnej granicy 100
+- `populationToCreateNewUnit` ≤ 450 w **234 z 428**, przy dolnej granicy 400
+
+Optimum leży **na krawędzi dozwolonej przestrzeni**, a nie w jej wnętrzu. Nie wiadomo więc, czy
+przy szerszych zakresach wynik nie byłby jeszcze lepszy.
+
+Sposób zamknięcia tematu jednym akapitem: celowany przemiat poza granicami (bez ponownego
+uruchamiania NSGA-II) sprawdzający, czy ocena rośnie dalej, czy się nasyca. Skrypt
+`test_granic_genow.py`, około 20 minut obliczeń.
+
+---
+
+## 9. Liczby, które warto mieć pod ręką
 
 | Wielkość | Wartość |
 |---|---|
@@ -442,13 +517,17 @@ rzędu 0,6–0,7 byłby bardzo mocnym argumentem.
 | Ocena mapy losowej | balans 0,174 · dynamizm 0,561 |
 | Ocena map celowo zepsutych | balans 0,141 do 0,000 |
 | Nasycenie skali przed poprawką / po | 24 % / 2 % konfiguracji na dnie |
+| NSGA-II: ocenionych konfiguracji | 428 (populacja 20, 25 pokoleń, 11,7 h) |
+| NSGA-II: hiperobjętość | 0,6912 → 0,7051, płaska od pokolenia 16 |
+| Znalezione optimum | popMax ≈ 99 · unitCost ≈ 420 · spawnDist ≈ 10 |
+| Szerokość frontu Pareto vs szum | 0,0072 wobec sd 0,0068 — nierozróżnialne |
 | Reguł w bazie balansu | 27 (komplet 3³) |
 | Reguł w bazie dynamizmu | 18 (2 × 3 × 3) |
 | Błąd średniej przy 20 meczach | terytorium ±2,0 · gospodarka ±2,5 · odbijanie ±9,7 |
 
 ---
 
-## 9. Pułapki i rzeczy, o których łatwo zapomnieć
+## 10. Pułapki i rzeczy, o których łatwo zapomnieć
 
 - **Opisz kompletność baz reguł.** Pierwotna baza balansu miała luki — dla 32% możliwych wyników
   żadna reguła się nie aktywowała, co kończyło się błędem. Opisanie, jak to wykryto i naprawiono

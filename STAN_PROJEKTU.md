@@ -81,6 +81,7 @@ każdego chromosomu byłoby nie do przyjęcia czasowo.
 |---|---|
 | `pilotaz_wyniki.json` | 50 konfiguracji × 60 metryk — podstawa kalibracji progów |
 | `mapy_kontrolne_wyniki.json` | wyniki weryfikacji na mapach kontrolnych |
+| `granice_genow_wyniki.json` | przemiat poza granicami zakresów genów (kontrola metodologiczna) |
 | `Wyniki_Batch/` | raport tekstowy z każdego meczu (~2400 plików) |
 | `nsga2_front.json` / `.csv` | front Pareto po zakończeniu optymalizacji |
 | `nsga2_postep.json` | stan po każdym pokoleniu (zabezpieczenie przed przerwaniem) |
@@ -130,11 +131,51 @@ Wszystko poniżej jest **wdrożone, przetestowane i opisane w GDD**.
 - [x] Weryfikacja na mapach kontrolnych i wzorcowych — **zaliczona**
 - [x] Cała populacja oceniana w jednym uruchomieniu Unity
 - [x] Zabezpieczenia: kasowanie starego wyniku, timeout, kontrola liczby wyników
-- [x] NSGA-II zaimplementowany i przetestowany na sztucznej funkcji oceny
+- [x] NSGA-II zaimplementowany, przetestowany i **uruchomiony w pelnym przebiegu**
+- [x] Przemiat poza granicami zakresow genow — **zakres genotypu obejmowal optimum**
+
+### Wynik glownego eksperymentu
+
+Przebieg NSGA-II: populacja 20, 25 pokolen, 60 meczow na ocene, **428 ocenionych konfiguracji**,
+11,7 godziny, zero odrzucen przez bramki poprawnosci.
+
+**Znalezione optimum:** `population_max` ok. 99 · `populationToCreateNewUnit` ok. 420 ·
+`minSpawnDistance` ok. 10. Czyli: bogaty swiat, tanie jednostki, umiarkowany dystans startowy.
+
+**Zbieznosc:** hiperobjetosc 0,6912 → 0,7051, plaska od pokolenia 16. 99,4 % wyniku osiagnieto
+w pierwszych 20 % czasu — 15 pokolen w zupelnosci wystarcza.
+
+**Front Pareto ma 4 rozwiazania, ale jest to szum, nie kompromis.** Rozpietosc frontu (balans
+0,0072) jest mniejsza lub rowna odchyleniu standardowemu ocen w tym samym rejonie przestrzeni
+(0,0068 dla balansu, 0,0138 dla dynamizmu, na 102 chromosomach). To empiryczne potwierdzenie
+wyniku glownego: skoro cele kooperuja, optymalizacja wielokryterialna degeneruje sie do
+jednokryterialnej.
+
+Pelne omowienie w `WSKAZOWKI_DO_PRACY.md` rozdz. 8. Dane: `nsga2_front.json`, `nsga2_front.csv`,
+`nsga2_postep.json`.
+
+### Kontrola granic zakresow genow — wykonana
+
+`test_granic_genow.py`, 14 konfiguracji x 60 meczow = 840 meczow, ok. 17 min. Dwa jednowymiarowe
+przemiaty wokol optimum, siegajace poza zadeklarowany genotyp.
+
+- `population_max` 90–200 (granica GDD: 100): najlepszy w zakresie 0,8365 / 0,8367, najlepszy poza
+  zakresem 0,8410 / 0,8412. Roznica +0,0045 przy progu istotnosci 0,0136.
+- `populationToCreateNewUnit` 150–800 (granica GDD: 400): najlepszy w zakresie 0,8303 / 0,8312,
+  najlepszy poza zakresem 0,8385 / 0,8337. Roznica +0,0081 przy progu istotnosci 0,0136.
+
+**Wniosek: zakres genotypu obejmowal optimum.** Poza granicami ocena sie nasyca. Dodatkowo
+optimum lezy na **plaskowyzu**, nie w ostrym maksimum — 13 z 14 konfiguracji dostalo ocene
+0,82–0,84. Jedyny wyrazny spadek to `populationToCreateNewUnit` = 800 (dynamizm 0,5345).
+
+Najmocniejszy argument znaleziono jednak przez analize samej funkcji przystosowania: **sufit
+matematyczny wyjscia systemu rozmytego wynosi 0,8667**, a znalezione optimum osiaga 0,8365, czyli
+96,5 % tego sufitu. Nawet mapa idealna (wszystkie nierownowagi = 0) dalaby tylko +0,0302. Nie bylo
+wiec czego obcinac. Pelne omowienie w `WSKAZOWKI_DO_PRACY.md` rozdz. 8, dane:
+`granice_genow_wyniki.json`.
 
 ### Co zostało
 
-- [ ] **Uruchomić pełny przebieg NSGA-II** (~12 h) i zinterpretować front Pareto
 - [ ] Opisać wyniki w pracy według `WSKAZOWKI_DO_PRACY.md`
 - [ ] Opcjonalnie: rozszerzyć weryfikację o mapy oparte na zasadach projektowych StarCrafta
 - [ ] Opcjonalnie: doprecyzować pomiar przewagi pierwszego ruchu (400 par zamiast 100)
@@ -148,8 +189,11 @@ Wszystko poniżej jest **wdrożone, przetestowane i opisane w GDD**.
 do projektu i inaczej kończy się błędem „another Unity instance is running".
 
 ```bash
-# glowny eksperyment - pelny przebieg, okolo 12 godzin
+# glowny eksperyment - pelny przebieg, okolo 12 godzin (JUZ WYKONANY)
 python nsga2_optymalizacja.py
+
+# sprawdzenie, czy optimum nie zostalo obciete granicami zakresow genow (~17 min, JUZ WYKONANY)
+python test_granic_genow.py
 
 # ten sam kod w wersji skroconej, do sprawdzenia czy wszystko dziala (~30 min)
 python nsga2_optymalizacja.py test
@@ -201,6 +245,17 @@ Pełne omówienie w `WSKAZOWKI_DO_PRACY.md`. W skrócie:
 
 5. **Analiza statystyczna wykryła dwie wady niewidoczne w kodzie**: przewagę pozycyjną bazy nr 1
    i fałszywe raportowanie remisów.
+
+6. **Front Pareto zapadł się do jednego punktu**, a jego pozorna szerokość to szum pomiarowy.
+   Jest to bezposrednia konsekwencja punktu 2 i sam w sobie wynik wart opisania.
+
+7. **Optimum to plaskowyz, a nie szczyt.** Przemiat poza granicami zakresow genow pokazal, ze
+   caly rejon `population_max` >= 100 i `populationToCreateNewUnit` <= 500 daje oceny
+   nierozroznialne statystycznie. Zalecenie projektowe jest wiec odporne, a nie wyostrzone.
+
+8. **Skala oceny rozmytej jest silnie scisnieta u gory.** Sufit wyjscia wynosi 0,8667, a rejon
+   optimum osiaga 0,8365. Prawie cala zdolnosc rozrozniania systemu miesci sie w waskiej strefie
+   przejscia miedzy ocena 0,5 a 0,83. To ograniczenie metody, o ktorym trzeba napisac uczciwie.
 
 ---
 
