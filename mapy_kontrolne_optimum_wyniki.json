@@ -1,0 +1,92 @@
+{
+  "tryby": [
+    "symetria obrotowa 180 st.",
+    "generator normalny",
+    "bogata strefa przy bazie 1",
+    "baza 2 zepchnieta w rog",
+    "bazy tuz obok siebie"
+  ],
+  "zestaw_genow": "optimum",
+  "geny": {
+    "minSpawnDistance": 11,
+    "population_max": 96,
+    "populationToCreateNewUnit": 447
+  },
+  "wyniki": [
+    {
+      "avgTerritorialImbalance": 0.06429386883974075,
+      "gameLength": 87.739990234375,
+      "conqueringRate": 99.28238677978516,
+      "avgGrowthImbalance": 8.141257286071777,
+      "avgMilitaryImbalance": 8.91241455078125,
+      "reconqueringRate": 34.6374626159668,
+      "peakDifferences": 48.271305084228516,
+      "peakGrowthDiff": 64.40238952636719,
+      "peakMilitaryDiff": 71.05748748779297,
+      "peakAverage": 61.24373245239258,
+      "fieldBattles": 84.51667022705078,
+      "leadChanges": 22.100000381469727,
+      "leadChangeRate": 5.306236743927002
+    },
+    {
+      "avgTerritorialImbalance": 0.09352675080299377,
+      "gameLength": 77.80332946777344,
+      "conqueringRate": 99.01387023925781,
+      "avgGrowthImbalance": 12.679511070251465,
+      "avgMilitaryImbalance": 10.239842414855957,
+      "reconqueringRate": 32.48194885253906,
+      "peakDifferences": 52.23520278930664,
+      "peakGrowthDiff": 69.18445587158203,
+      "peakMilitaryDiff": 74.40510559082031,
+      "peakAverage": 65.27491760253906,
+      "fieldBattles": 77.06666564941406,
+      "leadChanges": 13.883333206176758,
+      "leadChangeRate": 3.5944976806640625
+    },
+    {
+      "avgTerritorialImbalance": 0.1446858048439026,
+      "gameLength": 66.15332794189453,
+      "conqueringRate": 98.08793640136719,
+      "avgGrowthImbalance": 41.09111404418945,
+      "avgMilitaryImbalance": 21.029470443725586,
+      "reconqueringRate": 28.694650650024414,
+      "peakDifferences": 68.5016860961914,
+      "peakGrowthDiff": 72.27446746826172,
+      "peakMilitaryDiff": 90.15001678466797,
+      "peakAverage": 76.97539520263672,
+      "fieldBattles": 55.016666412353516,
+      "leadChanges": 6.766666889190674,
+      "leadChangeRate": 2.1458933353424072
+    },
+    {
+      "avgTerritorialImbalance": 0.1257409155368805,
+      "gameLength": 43.97667694091797,
+      "conqueringRate": 94.86573791503906,
+      "avgGrowthImbalance": 20.24394416809082,
+      "avgMilitaryImbalance": 11.430530548095703,
+      "reconqueringRate": 20.05956268310547,
+      "peakDifferences": 57.250240325927734,
+      "peakGrowthDiff": 76.83433532714844,
+      "peakMilitaryDiff": 63.001792907714844,
+      "peakAverage": 65.6954574584961,
+      "fieldBattles": 31.683332443237305,
+      "leadChanges": 5.349999904632568,
+      "leadChangeRate": 3.0777993202209473
+    },
+    {
+      "avgTerritorialImbalance": 0.10159117728471756,
+      "gameLength": 25.40666389465332,
+      "conqueringRate": 32.45833206176758,
+      "avgGrowthImbalance": 43.26654815673828,
+      "avgMilitaryImbalance": 23.818035125732422,
+      "reconqueringRate": 11.93518352508545,
+      "peakDifferences": 110.78512573242188,
+      "peakGrowthDiff": 119.9796371459961,
+      "peakMilitaryDiff": 91.14851379394531,
+      "peakAverage": 107.30443572998047,
+      "fieldBattles": 2.0,
+      "leadChanges": 16.96666717529297,
+      "leadChangeRate": 12.926563262939453
+    }
+  ]
+}

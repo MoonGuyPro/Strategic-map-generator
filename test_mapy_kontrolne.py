@@ -16,10 +16,26 @@ Uruchomienie:  python test_mapy_kontrolne.py
 import json
 import os
 import subprocess
+import sys
 
 import pipeline_fuzzy as pf
 
-GENY = {"minSpawnDistance": 12, "population_max": 60, "populationToCreateNewUnit": 700}
+# Dwa zestawy genow. Wszystkie tryby w jednym przebiegu dostaja ten sam zestaw, wiec porownanie
+# miedzy trybami jest uczciwe; miedzy przebiegami - nie, bo zmieniaja sie parametry swiata.
+#
+#   domyslny   - historyczny zestaw, na ktorym wykonano pierwsza weryfikacje
+#   optimum    - rozwiazanie o najwyzszym balansie z frontu Pareto (NSGA-II, przebieg na wzorach
+#                6 i 7 z artykulu). Odpowiada na pytanie, czy mapa idealnie symetryczna wypada
+#                lepiej niz losowa, gdy obie graja na najlepszych znanych parametrach swiata.
+ZESTAWY = {
+    'domyslny': {"minSpawnDistance": 12, "population_max": 60, "populationToCreateNewUnit": 700},
+    'optimum': {"minSpawnDistance": 11, "population_max": 96, "populationToCreateNewUnit": 447},
+}
+
+_tryb_genow = sys.argv[1] if len(sys.argv) > 1 else 'domyslny'
+if _tryb_genow not in ZESTAWY:
+    raise SystemExit(f'Nieznany zestaw genow: {_tryb_genow}. Dostepne: {", ".join(ZESTAWY)}')
+GENY = ZESTAWY[_tryb_genow]
 
 TRYBY = [
     (4, 'symetria obrotowa 180 st.', 'wzorzec - warunki startowe identyczne z definicji'),
@@ -29,7 +45,8 @@ TRYBY = [
     (3, 'bazy tuz obok siebie', 'ZEPSUTA - brak fazy rozwoju'),
 ]
 
-PLIK_WYNIKOW = 'mapy_kontrolne_wyniki.json'
+PLIK_WYNIKOW = ('mapy_kontrolne_wyniki.json' if _tryb_genow == 'domyslny'
+                else f'mapy_kontrolne_{_tryb_genow}_wyniki.json')
 
 
 def main():
@@ -38,6 +55,10 @@ def main():
     print(f'WERYFIKACJA NA MAPACH KONTROLNYCH')
     print(f'{len(TRYBY)} tryby x {pf.MECZOW_NA_CHROMOSOM} meczow = {meczow} meczow')
     print('=' * 78)
+    print(f'  zestaw genow: {_tryb_genow} -> spawn={GENY["minSpawnDistance"]}, '
+          f'popMax={GENY["population_max"]}, unitCost={GENY["populationToCreateNewUnit"]}')
+    print(f'  wynik zapisze do: {PLIK_WYNIKOW}')
+    print()
     for tryb, nazwa, opis in TRYBY:
         print(f'  [{tryb}] {nazwa:30} {opis}')
     print()
@@ -66,7 +87,8 @@ def main():
         raise SystemExit(f'Unity zwrocilo {len(wyniki)} wynikow zamiast {len(TRYBY)}.')
 
     with open(PLIK_WYNIKOW, 'w', encoding='utf-8') as f:
-        json.dump({'tryby': [t[1] for t in TRYBY], 'geny': GENY, 'wyniki': wyniki}, f, indent=2)
+        json.dump({'tryby': [t[1] for t in TRYBY], 'zestaw_genow': _tryb_genow,
+                   'geny': GENY, 'wyniki': wyniki}, f, indent=2)
 
     print()
     print('=' * 104)

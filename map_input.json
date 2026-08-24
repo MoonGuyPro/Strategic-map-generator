@@ -1,0 +1,55 @@
+{
+    "recipes": [
+        {
+            "minSpawnDistance": 12,
+            "population_max": 60,
+            "populationToCreateNewUnit": 700
+        },
+        {
+            "minSpawnDistance": 12,
+            "population_max": 60,
+            "populationToCreateNewUnit": 700
+        },
+        {
+            "minSpawnDistance": 12,
+            "population_max": 60,
+            "populationToCreateNewUnit": 700
+        },
+        {
+            "minSpawnDistance": 12,
+            "population_max": 60,
+            "populationToCreateNewUnit": 700
+        },
+        {
+            "minSpawnDistance": 12,
+            "population_max": 60,
+            "populationToCreateNewUnit": 700
+        },
+        {
+            "minSpawnDistance": 12,
+            "population_max": 60,
+            "populationToCreateNewUnit": 700
+        },
+        {
+            "minSpawnDistance": 12,
+            "population_max": 60,
+            "populationToCreateNewUnit": 700
+        },
+        {
+            "minSpawnDistance": 12,
+            "population_max": 60,
+            "populationToCreateNewUnit": 700
+        },
+        {
+            "minSpawnDistance": 12,
+            "population_max": 60,
+            "populationToCreateNewUnit": 700
+        },
+        {
+            "minSpawnDistance": 12,
+            "population_max": 60,
+            "populationToCreateNewUnit": 700
+        }
+    ],
+    "pairedFirstMove": true
+}

@@ -29,7 +29,8 @@ METRYKI = [
     ('teryt', r'Territorial Imbalance[^:]*:\s*([\d,\.]+)%', 'Territorial imbalance [%]'),
     ('growth', r'Growth Imbalance[^:]*:\s*([\d,\.]+)%', 'Growth imbalance [%]'),
     ('mil', r'Military Imbalance[^:]*:\s*([\d,\.]+)%', 'Military imbalance [%]'),
-    ('reconq', r'Reconquering Rate[^:]*:\s*([\d,\.]+)%', 'Reconquering rate [%]'),
+    # bez wymaganego znaku % na koncu - po wdrozeniu wzoru (6) raport podaje '% pol na 100 tur'
+    ('reconq', r'Reconquering Rate[^:]*:\s*([\d,\.]+)', 'Reconquering rate [% pol/100 tur]'),
     ('conq', r'Conquering Rate[^:]*:\s*([\d,\.]+)%', 'Conquering rate [%]'),
     ('lead', r'Lead Changes na 100 tur:\s*([\d,\.]+)', 'Zmiany prowadzenia /100 tur'),
     ('bitwy', r'Field Battles \(Bitwy polowe token vs token\):\s*(\d+)', 'Bitwy polowe [szt]'),

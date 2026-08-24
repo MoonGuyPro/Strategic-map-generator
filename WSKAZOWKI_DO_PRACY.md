@@ -131,7 +131,7 @@ Czym różni się nasz genotyp od genotypu z artykułu, opisuje tabela w rozdz. 
 2. **Koszt oceny jest nieporównanie wyższy.** Planet Wars jest grą czasu rzeczywistego, w której
    mecz trwa sekundy — autorzy wykonali 10 000 ewaluacji na przebieg, i to dziesięciokrotnie.
    Tutaj ocena jednego chromosomu to 60 meczów po 200–460 tur, a cały przebieg NSGA-II zajął
-   11,7 godziny na 428 chromosomów. Szersza przestrzeń wymagałaby większej populacji, a budżet
+   11 godzin 45 minut na 408 chromosomów. Szersza przestrzeń wymagałaby większej populacji, a budżet
    czasowy rośnie wielokrotnie.
 3. **Cel pracy jest inny niż u autorów.** Oni chcieli dostarczyć zestaw grywalnych plansz. Tu
    pytanie brzmi: **jakie właściwości świata sprawiają, że mapy wychodzą zbalansowane i dynamiczne**.
@@ -263,6 +263,15 @@ szum z pierwszych kilkudziesięciu tur, kiedy obaj boci mają jeszcze po kilka p
 się więc do głębokości ostatecznej dominacji powiększonej o niemal stałą wartość — i dlatego mierzy
 balans, a nie dramaturgię.
 
+**Trzeci, niezależny dowód — z map kontrolnych (rozdz. 7).** Mapa z bazami postawionymi tuż obok
+siebie ma jednocześnie **najniższą** średnią nierównowagę terytorialną w całym zestawieniu (0,9 %)
+i **najwyższą** amplitudę wahnięcia (100,9 %, przy 81,6 % dla mapy idealnie symetrycznej). Mechanizm:
+wzór (7) normalizuje różnicę przez sumę stanu posiadania obu graczy, więc gdy na początku meczu każdy
+bot ma po jednym czy dwa pola, zdobycie jednego kafelka daje ogromną wartość względną. Na mapie,
+gdzie rozgrywka kończy się po kilkudziesięciu turach, metryka mierzy praktycznie wyłącznie ten szum
+z pierwszych tur. W Planet Wars ten sam efekt istnieje, ale mecze trwają dostatecznie długo, by faza
+początkowa przestała dominować.
+
 **Jak to sformułować w pracy.** To już nie jest „uproszczenie" ani pomyłka implementacyjna, tylko
 **zweryfikowany wynik**: metryka zdefiniowana wzorem z artykułu, zaimplementowana dokładnie tak jak
 tam, mierzy w tej grze co innego, niż zakładali autorzy. Dowód jest mocny, bo pochodzi z porównania
@@ -281,7 +290,7 @@ Policzone na nowym pilotażu, te same progi, trzy warianty bazy reguł dynamizmu
 
 | wariant | zakres ocen | korelacja z BALANSEM |
 |---|---|---:|
-| A — pik pożądany ŚREDNI (obecna baza 18 reguł) | 0,156–0,833 | +0,651 |
+| A — pik pożądany ŚREDNI (ówczesna baza 18 reguł) | 0,156–0,833 | +0,651 |
 | B — pik pożądany NISKI (zgodnie z pomiarem) | 0,156–0,833 | **+0,834** |
 | C — **bez pika**, tylko zmiany prowadzenia × reconquering | 0,147–0,865 | **+0,586** |
 
@@ -294,7 +303,10 @@ Wariant B odpada właśnie dlatego, że jest najwyższy: +0,834 bierze się stą
 kierunkiem staje się po prostu czwartą metryką balansu. Byłoby to mierzenie balansu dwa razy
 i nazywanie tego zbieżnością celów.
 
-**Wdrożono wariant C.** Uzasadnienie jest dokładnie tej samej natury co przy Conquering Rate
+**Wdrożono wariant C**, opierając się na trzech niezależnych przesłankach: korelacji +0,930
+z nierównowagą terytorialną, ujemnych korelacjach z odbijaniem i bitwami oraz paradoksie mapy
+kontrolnej z bazami obok siebie (rozdz. 7). Uzasadnienie jest dokładnie tej samej natury co przy
+Conquering Rate
 (rozdz. 4.2): metryka nie jest własnością metody, tylko relacją między metodą a mechaniką gry.
 W Planet Wars pik mierzył zwroty akcji, bo tam powroty się zdarzały. Tutaj mierzy dominację, więc
 jako wejście dynamizmu jest nie tylko bezużyteczny, ale wręcz szkodliwy — zaciera granicę między
@@ -329,12 +341,16 @@ zmieniły, a przemiat granic pokazał szeroki płaskowyż — ale trzeba to poka
 Obie warto opisać, **łącznie z tym, że nie przyniosły oczekiwanego efektu**. To pokazuje rzetelność
 warsztatu.
 
-- **Bitwy polowe** (starcia token vs token): korelacja +0,96 ze wskaźnikiem odbijania na poziomie
-  pojedynczych meczów, stały stosunek około 1 bitwy na 7 przejęć pola. Oba zdarzenia są skutkiem
-  tego samego — czasu spędzonego przez oddziały na froncie.
-- **Zmiany prowadzenia**: mniej redundantne (+0,55), ale korelują ujemnie z metrykami balansu
-  (−0,63 z militarną). I to nie jest wada pomiaru — **lider może się zmienić tylko wtedy, gdy boty
-  są blisko siebie**, więc metryka z definicji mierzy również wyrównanie.
+- **Bitwy polowe** (starcia token vs token): korelacja **+0,985** ze wskaźnikiem odbijania. Oba
+  zdarzenia są skutkiem tego samego — czasu spędzonego przez oddziały na froncie. Przy tak wysokiej
+  korelacji metryka nie wnosi niczego nowego i dlatego pozostaje diagnostyczna.
+- **Zmiany prowadzenia**: wyraźnie mniej redundantne (**+0,616** z odbijaniem, czyli około 38 %
+  wspólnej wariancji), ale korelują ujemnie z metrykami balansu (**−0,707** z militarną). I to nie
+  jest wada pomiaru — **lider może się zmienić tylko wtedy, gdy boty są blisko siebie**, więc
+  metryka z definicji mierzy również wyrównanie.
+
+Liczby przeliczone na nowym pilotażu (50 × 60 meczów) i aktualnych definicjach metryk. Wcześniejsze
+wersje tej notatki podawały +0,96 / +0,55 / −0,63 — wartości sprzed wdrożenia wzoru (6).
 
 Wniosek metodologiczny: w tej grze trudno znaleźć miarę dynamizmu niezależną od balansu.
 
@@ -390,7 +406,7 @@ Trzy z trzech metryk **balansu** przeniosły się bez zmian koncepcyjnych.
 | element | opis | po co |
 |---|---|---|
 | **Zmiany prowadzenia na 100 tur** | liczba przejęć prowadzenia terytorialnego, znormalizowana do długości meczu | w artykule nie ma takiej zmiennej. Jest za to **słowna definicja dynamizmu** — gracz, który „is at a disadvantage at a certain point can regain their position" — którą autorzy zoperacjonalizowali przez piki. My operacjonalizujemy ją wprost. W wariancie C jest to **jedyne wejście dynamizmu niezależne od balansu** |
-| **Bitwy polowe** | liczba starć token vs token | metryka diagnostyczna; pokazuje, że dynamizm da się mierzyć również zdarzeniami militarnymi (korelacja +0,96 z odbijaniem, czyli redundantna — i to też jest wynik) |
+| **Bitwy polowe** | liczba starć token vs token | metryka diagnostyczna; pokazuje, że dynamizm da się mierzyć również zdarzeniami militarnymi (korelacja +0,985 z odbijaniem, czyli praktycznie ta sama informacja — i to też jest wynik) |
 | **Kalibracja empiryczna progów** | badanie pilotażowe, kwantyle, punkt nasycenia na maksimum rozkładu | cały etap metodologiczny, którego w artykule nie ma. Bez niego kryterium dynamizmu rozróżniało mapy w zakresie 0,02 na skali 0–1 |
 | **Bramki poprawności** | oddzielenie „czy wynik w ogóle wolno oceniać" od „jak dobry jest" | u autorów obie funkcje pełniły te same zmienne rozmyte; rozdzielenie wykryło mapę, którą system inaczej oceniłby najwyżej (rozdz. 7) |
 | **Programowa tabela decyzyjna z asercją** | reguły generowane ze słownika, kompletność sprawdzana przy starcie | gwarantuje zgodność dokumentacji z kodem i wyklucza sytuację bez aktywnej reguły |
@@ -567,8 +583,10 @@ Uczciwe pytanie i trzeba na nie odpowiedzieć w pracy, a nie czekać, aż zada j
 To będzie najczęściej cytowane zdanie z Twojej pracy.
 
 **Zmierzona korelacja ocen: od +0,54 do +0,65**, zależnie od zestawu metryk i wersji systemu.
-Sprawdzone na kilku niezależnych konfiguracjach — wynik jest stabilny. Na aktualnej kalibracji
-(pilotaż 50 × 60 meczów, wzory (6) i (7) z artykułu) wynosi **+0,651**.
+Sprawdzone na kilku niezależnych konfiguracjach — wynik jest stabilny. **Na aktualnym systemie
+(wzory (6) i (7) z artykułu, wariant C, progi z pilotażu 50 × 60 meczów) wynosi +0,586** i to jest
+liczba do podania w pracy. Wartość +0,651 pochodzi z wersji, w której punkty kulminacyjne były
+jeszcze wejściem dynamizmu — patrz rozdz. 4.3.1.
 
 ### Najgroźniejszy zarzut wobec tego wyniku — i odpowiedź na niego
 
@@ -653,21 +671,29 @@ którego zależy istnienie kompromisu**. Wersja do rozwinięcia w rozdziale z wn
 
 Tak postawiona teza nie jest kontrą do artykułu, tylko jego **uogólnieniem**: podaje warunek
 brzegowy, przy którym wynik autorów zachodzi, i pokazuje grę, w której ten warunek jest niespełniony.
-Tego w literaturze nie ma, a stoi za tym 428 ocenionych konfiguracji i blisko trzydzieści tysięcy
-rozegranych meczów.
+Tego w literaturze nie ma, a stoi za tym 408 ocenionych konfiguracji i ponad dwadzieścia cztery
+tysiące rozegranych meczów w samym tylko głównym przebiegu. Łącznie w całym projekcie rozegrano
+**około 58 000 meczów**.
 
 **Kontrargument, na który trzeba odpowiedzieć w tym samym rozdziale** — patrz rozdz. 11.5.
 
 ### Konsekwencja praktyczna, o której trzeba napisać
 
-Skoro cele są zbieżne, **front Pareto jest wąski** (2–4 punkty z 50 losowych konfiguracji).
-Nie ukrywaj tego — wyjaśnij, że jest to bezpośrednie następstwo zbieżności celów, i że
-w takiej sytuacji podejście wielokryterialne degeneruje się do jednokryterialnego. To również
-jest wynik.
+Skoro cele są zbieżne na całej przestrzeni, **front Pareto jest wąski** — 5 rozwiązań, o rozpiętości
+zaledwie 1,2–1,4 odchylenia standardowego szumu pomiarowego (rozdz. 8). Nie ukrywaj tego, tylko
+wyjaśnij: jest to bezpośrednie następstwo zbieżności celów.
+
+**Ale nie pisz już, że front zapadł się do punktu.** Po poprawieniu metryk (wzory 6 i 7 z artykułu,
+wariant C) front zaczął wykazywać uporządkowanie: korelacja obu ocen na samym froncie wynosi −0,574,
+rozwiązanie o najlepszym balansie ma najsłabszy dynamizm i odwrotnie. Poprawne sformułowanie brzmi
+więc: **cele kooperują globalnie, a wymieniają się dopiero lokalnie, w samym rejonie optimum**, gdzie
+oba są już blisko swoich maksimów. Podejście wielokryterialne nie degeneruje się całkowicie — daje
+wąski, lecz uporządkowany zbiór kompromisów, dokładnie takiego kształtu, jaki opisali autorzy
+artykułu. Szczegóły i liczby w rozdz. 8.
 
 ---
 
-## 6. Poprawność eksperymentu — trzy problemy wykryte analizą statystyczną
+## 6. Poprawność eksperymentu — cztery problemy wykryte analizą statystyczną
 
 Bardzo mocny materiał na rozdział metodologiczny. Pokazuje, że wyniki były weryfikowane,
 a nie brane na wiarę — i że **analiza danych wykryła wady niewidoczne przy czytaniu kodu**.
@@ -694,10 +720,24 @@ systematycznie spychał ją na peryferie mapy. Symulacja 3000 generacji potwierd
 | pól lądowych w promieniu 3 | 31,69 | **29,92** (o 6 % mniej) |
 
 Naprawa: po wylosowaniu obu pozycji następuje ich zamiana z prawdopodobieństwem 50 %, co wyrównuje
-rozkłady. Efekt potwierdzony pomiarem: **48,4 %, odchylenie 0,4 sigma**.
+rozkłady. Pierwszy pomiar kontrolny dał **48,4 % przy odchyleniu 0,4 sigma**.
+
+**Późniejszy, znacznie liczniejszy pomiar każe jednak osłabić to twierdzenie.** Kontrola wykonana
+przy okazji testu przewagi pierwszego ruchu (300 par, 579 rozstrzygniętych meczów) dała **54,7 %
+zwycięstw bota 1 przy odchyleniu 1,85 sigma**. Formalnie mieści się to w granicach szumu, ale:
+
+- efekt idzie w tę samą stronę co pierwotna wada i jest tylko nieco mniejszy od granicy
+  wykrywalności, która przy 300 parach wynosi 55,1 %;
+- pierwotne 48,4 % pochodziło z próby na tyle małej, że jest zgodne zarówno z 50 %, jak i z 55 %.
+
+**Do pracy napisz to ostrożnie:** poprawka usunęła większą część przewagi pozycyjnej — z 55,8 %
+przy 4,7 sigma zeszliśmy do wartości nieistotnej statystycznie — ale **przy obecnej liczbie meczów
+nie da się wykluczyć resztkowej przewagi rzędu kilku punktów procentowych.** Rozstrzygnięcie
+wymagałoby około 900 par, czyli 1800 meczów. Nie wpływa to na wyniki rozmyte, bo te w ogóle nie
+patrzą na to, który bot wygrał, ale wpływa na każdą analizę skuteczności.
 
 To jest gotowy przykład na to, że symetria rozstawienia nie bierze się sama z siebie — nawet przy
-losowym generatorze trzeba jej pilnować.
+losowym generatorze trzeba jej pilnować, a raz wprowadzona poprawka wymaga kontroli na dużej próbie.
 
 ### 6.3. Przewaga pierwszego ruchu — odpowiedź na artykuł Adamsa
 
@@ -714,35 +754,91 @@ Wymienia trzy sposoby jej kompensowania. Warto pokazać, że badana gra ma wszys
 **Projekt eksperymentu (wart opisania osobno).** Zastosowano porównanie parowane: każda mapa
 rozgrywana jest dwukrotnie — raz zaczyna bot 1, raz bot 2 — przy identycznym terenie, rozkładzie
 populacji i pozycjach baz. Eliminuje to zmienność map, która w zwykłym pomiarze jest 2,6 raza
-większa od badanego efektu. Wykonano 100 par, czyli 200 meczów.
+większa od badanego efektu. Pomiar powtórzono na aktualnych metrykach: **300 par, czyli 600 meczów**
+(poprzednio 100 par).
 
 **Wynik 1 — statystyki mapy nie zależą od tego, kto zaczyna.** Wszystkie osiem metryk mieści się
-w granicach szumu (odchylenia 0,3–0,8 sigma):
+w granicach szumu, odchylenia 0,1–1,1 sigma:
 
 | metryka | zaczynał bot 1 | zaczynał bot 2 | różnica | sigma |
 |---|---:|---:|---:|---:|
-| Territorial imbalance | 16,09 | 15,61 | +0,47 | 0,5 |
-| Growth imbalance | 21,84 | 20,99 | +0,85 | 0,7 |
-| Military imbalance | 22,65 | 22,36 | +0,29 | 0,3 |
-| Reconquering rate | 71,88 | 75,26 | −3,39 | 0,8 |
-| Conquering rate | 96,90 | 97,80 | −0,90 | 0,6 |
-| Zmiany prowadzenia /100 tur | 2,26 | 2,06 | +0,20 | 0,5 |
-| Bitwy polowe | 37,01 | 38,40 | −1,39 | 0,7 |
-| Liczba tur | 332,3 | 341,3 | −9,03 | 0,8 |
+| Territorial imbalance [%] | 15,74 | 15,32 | +0,42 | 0,7 |
+| Growth imbalance [%] | 21,66 | 21,28 | +0,38 | 0,6 |
+| Military imbalance [%] | 22,27 | 21,51 | +0,77 | 1,1 |
+| Reconquering rate | 67,25 | 67,51 | −0,26 | 0,1 |
+| Conquering rate [%] | 96,04 | 95,74 | +0,29 | 0,4 |
+| Zmiany prowadzenia /100 tur | 2,54 | 2,74 | −0,20 | 0,7 |
+| Bitwy polowe [szt] | 34,78 | 35,04 | −0,26 | 0,2 |
+| Liczba tur | 316,82 | 316,32 | +0,50 | 0,1 |
+
+> Drobne zastrzeżenie: wiersz „Reconquering rate" pochodzi z raportów tekstowych, w których
+> `GameMetricsCollector` liczył jeszcze starą postać metryki (suma przejęć bez dzielenia przez liczbę
+> tur). Nie wpływa to na wniosek, bo obie grupy mierzono identycznie, a wartość służy tu wyłącznie do
+> porównania między nimi. Rozbieżność między raportem tekstowym a eksportem JSON została już
+> usunięta w kodzie, więc kolejny przebieg poda tę metrykę w skali „% pól na 100 tur".
 
 To uzasadnia, że przy ocenie chromosomów nie trzeba rozdzielać wyników według kolejności ruchu.
 
-**Wynik 2 — nie wykryto przewagi w skuteczności.** Bot zaczynający wygrał 53,6 % z 192
-rozstrzygniętych meczów, odchylenie 1,0 sigma.
+**Wynik 2 — nie wykryto przewagi pierwszego ruchu, i to znacznie ostrzej niż poprzednio.** Bot
+zaczynający wygrał **51,2 %** (jednostką obserwacji jest para), odchylenie **0,74 sigma**.
 
-**Uczciwe zastrzeżenie do zapisania w pracy:** przy 192 meczach błąd standardowy wynosi 3,6 punktu,
-więc test wykrywa dopiero przewagę powyżej 57 %. Poprawne sformułowanie brzmi „nie wykryto przewagi
-pierwszego ruchu", a nie „przewagi nie ma". Rozstrzygnięcie wymagałoby około 400 par.
+| | poprzedni pomiar | **obecny** |
+|---|---:|---:|
+| par | 100 | **300** |
+| odsetek zwycięstw bota zaczynającego | 53,6 % | **51,2 %** |
+| odchylenie | 1,0 sigma | **0,74 sigma** |
+| granica wykrywalności (2 sigma) | 57 % | **53,1 %** |
+
+**Uczciwe sformułowanie do pracy:** nie wykryto przewagi pierwszego ruchu, a test wyklucza przewagę
+większą niż **53,1 %**. Poprzednia wersja mogła wykluczyć dopiero 57 %, więc trzykrotne zwiększenie
+próby realnie zawęziło wniosek. Nadal obowiązuje zasada, by pisać „nie wykryto przewagi", a nie
+„przewagi nie ma".
+
+### 6.3.1. Pułapka statystyczna, którą ten test ujawnił
+
+Materiał na osobny akapit metodologiczny, bo pokazuje warsztat.
+
+Skrypt liczył istotność, traktując wszystkie 579 rozstrzygniętych meczów jako **niezależne**
+obserwacje. To założenie jest fałszywe: dwa mecze w parze rozgrywane są na **tej samej mapie**,
+z **tymi samymi pozycjami baz**, więc ich wyniki są dodatnio skorelowane. Skala tej korelacji jest
+zaskakująco duża:
+
+| liczba zwycięstw bota 1 w parze | par | oczekiwane przy niezależności |
+|---|---:|---:|
+| 0 z 2 | 102 | 75 |
+| 1 z 2 (podział) | 68 | 150 |
+| 2 z 2 | 130 | 75 |
+
+**W 232 parach z 300, czyli w 77 % przypadków, obie rozgrywki na tej samej mapie wygrał ten sam
+bot** — przy 50 % oczekiwanych, gdyby o wyniku decydował przypadek. Mapa wraz z rozstawieniem baz
+przesądza więc o zwycięzcy w zdecydowanej większości meczów, niezależnie od tego, kto zaczyna.
+
+Konsekwencja rachunkowa: prawdziwy błąd standardowy dla przewagi bazy nr 1 wynosi **2,53 punktu**,
+a nie 2,08 punktu przyjmowane przy założeniu niezależności. Istotność spada z pozornych **2,54 sigma
+do 1,85 sigma** i wynik przestaje być istotny. Skrypt poprawiono.
+
+Zwróć uwagę na asymetrię, którą warto opisać: **parowanie pomaga tylko temu pytaniu, dla którego
+kontrast leży wewnątrz pary.** Dla przewagi pierwszego ruchu jeden mecz w parze zaczyna bot 1,
+a drugi bot 2, więc mapa się skraca i błąd standardowy spada do 1,57 punktu. Dla przewagi bazy nr 1
+obie połowy pary mają identyczne położenie baz, więc mapa się nie skraca, a korelacja błąd
+standardowy **podnosi**. Ten sam zbiór danych daje więc dokładniejszą odpowiedź na jedno pytanie
+i mniej dokładną na drugie.
 
 ### 6.4. Ile z wyniku pochodzi z mapy, a ile z losu
 
 Eksperyment parowany pozwala rozłożyć zmienność na dwie części, bo dysponujemy dwoma przebiegami
 na **identycznym** terenie.
+
+**Najprostszy i najmocniejszy sposób pokazania tego** pochodzi z powtórzonego pomiaru na 300 parach:
+**w 232 parach z 300, czyli w 77 % przypadków, obie rozgrywki na tej samej mapie wygrał ten sam
+bot.** Gdyby o wyniku decydował wyłącznie przypadek, byłoby to 50 %. Jedno zdanie, jedna liczba,
+zero rachunków — a mówi dokładnie to samo co tabela poniżej. Warto postawić je na początku
+podrozdziału.
+
+> Rozkład wariancji w tabeli poniżej pochodzi z wcześniejszego przebiegu, na 100 parach i przy
+> poprzednich definicjach metryk. Wiersz „Reconquering rate" jest w starej skali. Wniosek — mapa
+> wyjaśnia od kilkunastu do około połowy zmienności — nie zależy od jednostek, bo jest ilorazem
+> dwóch odchyleń tej samej wielkości, i jest zgodny z wynikiem 77 % podanym wyżej.
 
 | metryka | sd między meczami | sd z MAPY | sd z LOSU | udział mapy |
 |---|---:|---:|---:|---:|
@@ -801,47 +897,212 @@ pierwszego. Warunki startowe są tożsame nie z przybliżenia, lecz z konstrukcj
 standard projektowy map turniejowych 1v1 na sztywnych siatkach (Advance Wars, Wargroove,
 Into the Breach), bo zachowuje długości dróg przemarszu — czego odbicie lustrzane nie gwarantuje.
 
-### Wynik: metryki działają
+### WERYFIKACJA ROZSTRZYGAJĄCA: mapa wzorcowa przy parametrach z optimum
 
-Liczby przeliczone z `mapy_kontrolne_wyniki.json`. **Wcześniejsza wersja tej notatki podawała
-w tej tabeli wartości z jakiegoś starszego przebiegu i nie zgadzały się one z zapisanymi danymi
-ani co do jednej pozycji** — oceny rozmyte zgadzały się, surowe metryki nie. Poniżej wersja
-odtworzona z pliku.
+**To jest najważniejszy wynik całego rozdziału 7 i najmocniejsza odpowiedź na uwagę promotora.**
+Postaw go na początku rozdziału weryfikacyjnego w pracy.
 
-| tryb mapy | teryt % | growth % | mil % | reconq % | conq % | BALANS | DYNAMIZM |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| symetria obrotowa 180° | **13,3** | **16,2** | **19,0** | **114,8** | 98,7 | **0,590** | **0,759** |
-| generator normalny | 17,2 | 23,8 | 25,0 | 63,9 | 92,8 | 0,174 | 0,561 |
-| bogata strefa przy bazie 1 | 20,5 | **55,6** | **43,7** | 10,7 | 75,4 | 0,141 | 0,154 |
-| baza 2 zepchnięta w róg | **26,9** | 37,1 | 33,8 | 33,3 | 96,0 | 0,133 | 0,157 |
-| bazy tuż obok siebie | 0,9 | 28,8 | 4,5 | 17,4 | **6,5** | **0,000** | **0,000** |
+Test powtórzono, zmieniając wyłącznie jedną rzecz: zamiast historycznych genów 12 / 60 / 700 użyto
+**11 / 96 / 447**, czyli rozwiązania o najwyższym balansie z frontu Pareto. Mapy, tryby i liczba
+meczów bez zmian. Dane: `mapy_kontrolne_optimum_wyniki.json`, uruchomienie
+`python test_mapy_kontrolne.py optimum`.
+
+| tryb mapy | teryt % | growth % | mil % | reconq | peaks % | conq % | BALANS | DYNAMIZM |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| symetria obrotowa 180° | **6,4** | **8,1** | **8,9** | **34,6** | 61,2 | 99,3 | **0,8475** | **0,8667** |
+| generator normalny | 9,4 | 12,7 | 10,2 | 32,5 | 65,3 | 99,0 | 0,8320 | 0,8468 |
+| baza 2 zepchnięta w róg | 12,6 | 20,2 | 11,4 | 20,1 | 65,7 | 94,9 | 0,6058 | 0,8324 |
+| bogata strefa przy bazie 1 | 14,5 | **41,1** | **21,0** | 28,7 | 77,0 | 98,1 | 0,1474 | 0,5168 |
+| bazy tuż obok siebie | 10,2 | 43,3 | 23,8 | 11,9 | **107,3** | **32,5** | **0,0000** | **0,0000** |
+
+**Mapa wzorcowa osiąga 97,8 % sufitu balansu i dokładnie 100,0 % sufitu dynamizmu.** Jej surowe
+nierównowagi — terytorialna 6,4 %, gospodarcza 8,1 %, militarna 8,9 % — są **najniższe, jakie
+zaobserwowano gdziekolwiek w tym projekcie.**
+
+#### Mapa wzorcowa bije wszystko, co znalazł algorytm
+
+Porównanie przy identycznych genach 11 / 96 / 447:
+
+| | BALANS | DYNAMIZM | teryt % | growth % | mil % |
+|---|---:|---:|---:|---:|---:|
+| najlepsze rozwiązanie z frontu NSGA-II | 0,8418 | 0,8504 | 6,8 | 10,4 | 9,2 |
+| generator losowy, te same geny | 0,8320 | 0,8468 | 9,4 | 12,7 | 10,2 |
+| **mapa wzorcowa, te same geny** | **0,8475** | **0,8667** | **6,4** | **8,1** | **8,9** |
+
+Mapa skonstruowana tak, by być obiektywnie sprawiedliwa, wypada lepiej niż mapa losowa (+0,0155
+balansu, 1,52 σ; +0,0199 dynamizmu, 1,79 σ) **oraz lepiej niż najlepsze rozwiązanie, jakie
+w 408 ocenach znalazł NSGA-II**.
+
+**Jak to uczciwie sformułować.** Same oceny rozmyte różnią się o 1,5–1,8 odchylenia, więc pojedynczo
+są na granicy istotności. Rozstrzygające są jednak surowe metryki, obarczone znacznie mniejszym
+błędem względnym: nierównowaga terytorialna spada z 9,4 % do 6,4 %, czyli o **jedną trzecią**,
+gospodarcza z 12,7 % do 8,1 %, a wszystkie trzy zmieniają się w tę samą stronę. Poprawne zdanie do
+pracy: **funkcja przystosowania przyznaje najwyższą ocenę mapie, o której z konstrukcji wiadomo, że
+jest sprawiedliwa — i czyni to niezależnie od tego, że mapa ta nigdy nie brała udziału
+w optymalizacji.** To jest dokładnie ten dowód, którego brakowało.
+
+#### Poprzedni wynik był artefaktem parametrów, nie mapy
+
+Wcześniejsza wersja testu dawała mapie wzorcowej zaledwie 0,4148 i nie dawało się rozstrzygnąć, czy
+odpowiada za to plansza, czy dobór parametrów świata. Teraz wiadomo — **plansza jest ta sama, zmieniły
+się wyłącznie geny**:
+
+| tryb mapy | BALANS przy 12 / 60 / 700 | BALANS przy 11 / 96 / 447 | zmiana |
+|---|---:|---:|---:|
+| symetria obrotowa | 0,4148 | **0,8475** | **+0,4328** |
+| generator normalny | 0,1644 | 0,8320 | +0,6676 |
+| baza 2 w rogu | 0,1419 | 0,6058 | +0,4639 |
+| bogata strefa | 0,1378 | 0,1474 | +0,0096 |
+| bazy obok siebie | 0,0000 | 0,0000 | 0,0000 |
+
+Wniosek do rozdziału z dyskusją: **dobór parametrów świata wpływa na sprawiedliwość rozgrywki
+silniej niż geometria planszy.** Ta sama mapa symetryczna, ta sama liczba meczów — a ocena rośnie
+z 0,41 do 0,85 wyłącznie dlatego, że świat stał się bogatszy, a jednostki tańsze.
+
+#### Nowy wynik: asymetrię przestrzenną da się naprawić parametrami, zasobowej nie
+
+Najciekawsza rzecz w całym zestawieniu i gotowy materiał na osobny akapit.
+
+| zaburzenie | balans przy 12/60/700 | balans przy 11/96/447 | poprawa |
+|---|---:|---:|---:|
+| **przestrzenne** — baza 2 w rogu | 0,1419 | **0,6058** | **+0,4639** |
+| **zasobowe** — bogata strefa przy bazie 1 | 0,1378 | **0,1474** | **+0,0096** |
+
+Różnica jest prawie pięćdziesięciokrotna, a mechanizm czytelny:
+
+- **Asymetria przestrzenna daje się skompensować.** Bogaty świat i tanie jednostki pozwalają botowi
+  zepchniętemu w róg mimo wszystko się rozwinąć i walczyć — nierównowaga terytorialna spada z 22,6 %
+  do 12,6 %, a dynamizm z 0,3480 skacze do 0,8324. Mapa przestaje być zepsuta, staje się tylko gorsza.
+- **Asymetria zasobowa nie daje się skompensować.** Jeśli jeden bot ma po prostu lepsze pola, żadna
+  ilość bogactwa w świecie tego nie wyrówna, bo skalowanie podnosi wartość obu stron proporcjonalnie.
+  Nierównowaga gospodarcza spada tylko z 58,3 % do 41,1 % i pozostaje miażdżąca, a balans praktycznie
+  nie drgnie.
+
+Jest to wskazówka projektowa wykraczająca poza tę konkretną grę: **przy projektowaniu mapy
+rozmieszczenie zasobów wymaga większej staranności niż rozmieszczenie pozycji startowych**, bo błędu
+w tym pierwszym nie da się później naprawić strojeniem ekonomii.
+
+#### Bramka poprawności nadal potrzebna
+
+Mapa z bazami obok siebie przy dobrych parametrach rozwija się zauważalnie bardziej niż wcześniej —
+wskaźnik podboju rośnie z 6,2 % do 32,5 %, a nierównowaga terytorialna z 0,9 % do 10,2 %, więc
+złudzenie „idealnie zbalansowanej" mapy słabnie. Mimo to **podbój 32,5 % nadal leży poniżej progu
+60 % i mapa zostaje odrzucona.** Bramka jest więc potrzebna także w rejonie optimum.
+
+Ten tryb po raz kolejny daje też najwyższą amplitudę wahnięcia w całym zestawieniu — **107,3 %**,
+przy 61,2 % dla mapy wzorcowej. To trzecie niezależne potwierdzenie, że punkty kulminacyjne mierzą
+w tej grze zmienność fazy startowej, a nie dramaturgię (rozdz. 4.3).
+
+---
+
+### Wynik przy genach historycznych 12 / 60 / 700 — wersja poprzednia
+
+Zestawienie poniżej zachowano, bo pokazuje zachowanie systemu przy parametrach dalekich od optimum
+i to na nim opiera się kilka wniosków z dalszej części rozdziału.
+
+
+Przebieg powtórzony na **poprawionym systemie** (wzory 6 i 7 z artykułu, wariant C, progi z pilotażu
+50 × 60 meczów). Pięć trybów × 60 meczów = 300 meczów. Dane: `mapy_kontrolne_wyniki.json`.
+
+| tryb mapy | teryt % | growth % | mil % | reconq | peaks % | conq % | BALANS | DYNAMIZM |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| symetria obrotowa 180° | **14,0** | **17,1** | **20,0** | **24,5** | **81,6** | 99,4 | **0,4148** | **0,6457** |
+| generator normalny | 18,5 | 24,5 | 25,4 | 19,7 | 88,6 | 98,9 | 0,1644 | 0,5000 |
+| bogata strefa przy bazie 1 | 21,5 | **58,3** | **44,7** | 5,6 | 86,7 | 74,7 | 0,1378 | 0,1429 |
+| baza 2 zepchnięta w róg | **22,6** | 29,6 | 27,7 | 13,8 | 89,4 | 93,1 | 0,1419 | 0,3480 |
+| bazy tuż obok siebie | 0,9 | 28,4 | 4,1 | 9,8 | **100,9** | **6,2** | **0,0000** | **0,0000** |
+
+**Oba warunki weryfikacji spełnione:** wzorzec (0,4148) ≥ mapa losowa (0,1644), a mapa losowa
+> najlepsza z zepsutych (0,1419).
 
 Każde zaburzenie wykryte przez tę metrykę, która miała je wykryć:
 
-- **bogata strefa** podniosła Growth Imbalance z 23,8 % do **55,6 %**, czyli 2,3-krotnie — to
-  bezpośrednie potwierdzenie zasadności przedefiniowania tej metryki (rozdz. 4.1)
-- **baza w rogu** dała najwyższą nierównowagę terytorialną (26,9 % wobec 17,2 % na mapie losowej)
-- **symetria** dała najniższe wszystkie trzy nierównowagi i **1,8 raza wyższy** wskaźnik odbijania
-  niż mapa losowa — idealnie wyrównane siły powodują nieustanne falowanie frontu
+- **bogata strefa** podniosła Growth Imbalance z 24,5 % do **58,3 %**, czyli 2,4-krotnie — to
+  bezpośrednie potwierdzenie zasadności przedefiniowania tej metryki (rozdz. 4.1);
+- **baza w rogu** dała najwyższą nierównowagę terytorialną (22,6 % wobec 18,5 % na mapie losowej);
+- **symetria** dała najniższe wszystkie trzy nierównowagi i najwyższy wskaźnik odbijania.
 
-**Zastrzeżenie po zmianie definicji metryk.** Kolumna `reconq %` pochodzi sprzed wdrożenia wzoru (6)
-z artykułu — jest to łączna liczba przejęć na 100 pól, bez dzielenia przez liczbę tur. Po
-rekalibracji trzeba ten test powtórzyć (`python test_mapy_kontrolne.py`, 5 trybów × 60 meczów,
-ok. 15 minut) i podmienić kolumny `reconq %` oraz `DYNAMIZM`. Kolumny `teryt`, `growth`, `mil`
-i `BALANS` zmiana metryk nie dotyczy — te liczby zostają.
+### Co się poprawiło po zmianie metryk — konkretna liczba
+
+Stary system nie potrafił odróżnić dwóch map zepsutych na różne sposoby: „bogata strefa" dostawała
+dynamizm 0,1540, a „baza w rogu" 0,1565. Różnica 0,0025 to zero informacji.
+
+| | stary system | **nowy system** |
+|---|---:|---:|
+| dynamizm — bogata strefa | 0,1540 | 0,1429 |
+| dynamizm — baza w rogu | 0,1565 | **0,3480** |
+| odstęp między nimi | 0,0025 | **0,2051** |
+
+Odstęp wzrósł **82-krotnie**. To ma sens merytoryczny: mapa z bazą w rogu jest niesprawiedliwa
+przestrzennie, ale rozgrywka na niej faktycznie trwa i front się przesuwa (podbój 93,1 %,
+odbijanie 13,8), podczas gdy mapa z bogatą strefą jest rozstrzygana jednostronnie i szybko
+(podbój 74,7 %, odbijanie 5,6). Stary system tego nie widział, nowy widzi. **To jest najlepszy
+dowód, że poprawka metryk zwiększyła rozdzielczość oceny, a nie tylko przesunęła liczby.**
+
+### Podłoga nierównowagi zależy od parametrów świata, nie tylko od mapy
+
+Zestawienie obu przebiegów daje wniosek, którego nie widać w żadnym z nich osobno.
+
+Mapa o **idealnej symetrii obrotowej** — warunki startowe tożsame z konstrukcji, nie z przybliżenia —
+daje różne nierównowagi w zależności od parametrów świata:
+
+| geny | teryt % | growth % | mil % | BALANS |
+|---|---:|---:|---:|---:|
+| 12 / 60 / 700 (ubogi świat, drogie jednostki) | 14,0 | 17,1 | 20,0 | 0,4148 |
+| **11 / 96 / 447 (optimum)** | **6,4** | **8,1** | **8,9** | **0,8475** |
+
+Ta sama plansza, ta sama procedura, 60 meczów w obu przypadkach. Różnica bierze się wyłącznie
+z reguł ekonomii i kosztu jednostek.
+
+**Interpretacja do pracy.** Zmierzona nierównowaga ma podłogę wyznaczoną przez losowość symulacji —
+mnożnik strat w walce 0,8–1,2 i zależność dalszych zdarzeń od pojedynczych rozstrzygnięć — ale
+**wysokość tej podłogi nie jest stała: sama zależy od parametrów świata.** W świecie ubogim,
+z drogimi jednostkami, pojedyncze przegrane starcie waży bardzo dużo, bo odtworzenie oddziału trwa
+długo; rozbieżność narasta i nawet idealnie symetryczna plansza kończy z nierównowagą 14 %.
+W świecie bogatym, z tanimi jednostkami, straty odbudowuje się szybko, pojedyncze zdarzenie nie
+przesądza o przebiegu i ta sama plansza schodzi do 6,4 %.
+
+To jest ta sama obserwacja co w rozdz. 6.4 („mapa wyjaśnia jedynie 12–53 % zmienności wyniku"),
+pokazana od strony przyczyny: **udział mapy w wyniku rośnie wraz z bogactwem świata, bo maleje udział
+przypadku.** Jest to zarazem wyjaśnienie, dlaczego NSGA-II zbiegł właśnie do bogatego świata i tanich
+jednostek — takie parametry nie tylko dają lepsze mapy, ale też **czynią jakość mapy w ogóle
+mierzalną**.
+
+Uwaga metodologiczna wynikająca z powyższego: **progów systemu rozmytego nie da się interpretować
+w oderwaniu od parametrów świata.** Kalibrowano je na losowej próbce z całej przestrzeni genotypu,
+w której przeważają konfiguracje przeciętne, więc mediana rozkładu (terytorialna 14,25 %) odpowiada
+mniej więcej temu, co daje świat ubogi. Dlatego mapa wzorcowa przy genach 12 / 60 / 700 wypada
+„przeciętnie" — nie dlatego, że jest przeciętna, lecz dlatego, że skala jest ustawiona na przeciętne
+warunki.
 
 ### Najciekawszy przypadek: bazy obok siebie
 
-Ten tryb miał **najniższe** surowe nierównowagi z całego zestawienia: terytorialna 0,9 %,
-militarna 4,5 %. Wyglądał więc na mapę idealnie zbalansowaną — bo gra kończy się, zanim
-ktokolwiek zdąży zbudować przewagę.
+Ten tryb miał **najniższą** średnią nierównowagę terytorialną z całego zestawienia — **0,9 %** —
+oraz najniższą militarną (4,1 %). Wyglądał więc na mapę idealnie zbalansowaną, bo gra kończy się,
+zanim ktokolwiek zdąży zbudować przewagę.
 
-Odrzuciła go dopiero **bramka poprawności**: wskaźnik podboju 6,5 % wobec progu 60 %.
+Odrzuciła go dopiero **bramka poprawności**: wskaźnik podboju **6,2 %** wobec progu 60 %.
 
-To jest empiryczne uzasadnienie decyzji o przeniesieniu Conquering Rate z wejść systemu do
-warunków dopuszczenia wyniku (rozdz. 4.2). Gdyby pozostał zwykłym wejściem, mapa ta dostałaby
-wysoką ocenę, a NSGA-II ewoluowałby w stronę map, na których rozgrywka kończy się po kilkudziesięciu
-turach.
+To jest empiryczne uzasadnienie decyzji o przeniesieniu Conquering Rate z wejść systemu do warunków
+dopuszczenia wyniku (rozdz. 4.2). Gdyby pozostał zwykłym wejściem, mapa ta dostałaby wysoką ocenę,
+a NSGA-II ewoluowałby w stronę map, na których rozgrywka kończy się po kilkudziesięciu turach.
+
+**Ta sama mapa dostarcza drugiego, niezależnego dowodu — tym razem przeciwko punktom kulminacyjnym.**
+Ma ona jednocześnie:
+
+- **najniższą** średnią nierównowagę terytorialną w całym zestawieniu: 0,9 %,
+- **najwyższą** amplitudę wahnięcia przewagi: 100,9 % (mapa wzorcowa ma 81,6 %).
+
+Dwie metryki, które w zamyśle autorów artykułu miały opisywać powiązane zjawiska, wskazują tu
+w przeciwne strony. Mechanizm jest prosty i wart opisania: wzór (7) normalizuje różnicę przez sumę
+stanu posiadania obu graczy, więc **na początku meczu, gdy każdy bot ma po jednym czy dwa pola,
+zdobycie jednego kafelka daje ogromną wartość względną.** Na mapie, na której rozgrywka kończy się
+po kilkudziesięciu turach i nikt nie zdąży się rozwinąć, metryka mierzy praktycznie wyłącznie ten
+szum z pierwszych tur. W Planet Wars problem też istnieje, ale tam mecze trwają dostatecznie długo,
+by faza początkowa przestała dominować.
+
+Jest to trzeci, niezależny argument za wariantem C z rozdz. 4.3.1 — obok korelacji +0,930
+z nierównowagą terytorialną i ujemnych korelacji z odbijaniem oraz bitwami.
 
 ### Co weryfikacja wykryła w samym systemie oceny
 
@@ -861,25 +1122,15 @@ zaobserwowaną w pilotażu**.
 | przed | 13 / 50 (24 %) | 41 / 50 |
 | **po** | **1 / 50 (2 %)** | **47 / 50** |
 
-Po poprawce oceny układają się w oczekiwanej kolejności:
-
-| tryb mapy | BALANS | DYNAMIZM |
-|---|---:|---:|
-| symetria obrotowa | **0,590** | **0,759** |
-| generator normalny | 0,174 | 0,561 |
-| bogata strefa | 0,141 | 0,154 |
-| baza na skraju | 0,133 | 0,157 |
-| bazy obok siebie | 0,000 | 0,000 |
-
-Oba warunki spełnione: wzorzec ≥ losowa, losowa > najlepsza zepsuta.
-
 **To jest bardzo dobry fragment pracy** — pokazuje, że weryfikacja nie była formalnością, tylko
-wykryła realną wadę kalibracji, którą naprawiono przed uruchomieniem optymalizacji.
+wykryła realną wadę kalibracji, którą naprawiono przed uruchomieniem optymalizacji. Poprawka
+utrzymała się także po przeliczeniu progów na nowym pilotażu: na dnie skali jest nadal
+1 konfiguracja z 50.
 
 ### Zastrzeżenie do zapisania
 
 Skala ocen pozostaje **względna wobec rozkładu z pilotażu**. Mapa z bogatą strefą ma Growth
-Imbalance 59,1 %, podczas gdy generator normalny wytwarza 13,9–32,4 % — jest poza zakresem
+Imbalance 58,3 %, podczas gdy generator normalny wytwarza 12,0–32,5 % — jest poza zakresem
 kalibracji i nadal się nasyca. Nie jest to wada, lecz właściwość metody: system kalibrowano po to,
 by rozróżniał mapy rzeczywiście wytwarzane przez generator, a nie by mierzył patologie w skali
 bezwzględnej.
@@ -906,161 +1157,245 @@ rzędu 0,6–0,7 byłby bardzo mocnym argumentem.
 
 ## 8. Wynik główny eksperymentu — NSGA-II
 
-To jest rozdział z wynikami pracy. Przebieg: populacja 20, 25 pokoleń, 60 meczów na ocenę
-chromosomu, **428 ocenionych konfiguracji**, 11,7 godziny obliczeń, zero odrzuceń przez bramki
-poprawności.
+Przebieg wykonany na **poprawionym systemie metryk** (wzory 6 i 7 z artykułu, wariant C, progi
+z pilotażu 50 × 60 meczów). Populacja 20, 25 pokoleń, 60 meczów na ocenę chromosomu,
+**408 ocenionych konfiguracji**, 11 godzin 45 minut, zero odrzuceń przez bramki poprawności.
+112 genotypów powtórzyło się i zostało pobranych z pamięci — sam ten fakt jest oznaką zbieżności.
 
 ### Znalezione optimum
 
-| gen | wartość w najlepszych rozwiązaniach | dozwolony zakres |
-|---|---|---|
-| `population_max` | 93–99 (mediana **99**) | 20–100 |
-| `populationToCreateNewUnit` | 400–619 (mediana **420**) | 400–1000 |
-| `minSpawnDistance` | 8–13 (mediana **10**) | 8–18 |
+| gen | na froncie Pareto | mediana wszystkich 408 ocen | dozwolony zakres |
+|---|---|---|---|
+| `population_max` | 90–99 | 91 | 20–100 |
+| `populationToCreateNewUnit` | 412–447 | 439 | 400–1000 |
+| `minSpawnDistance` | 10–13 | 11 | 8–18 |
 
-Przepis na dobrą mapę w tej grze: **bogaty świat, tanie jednostki, umiarkowany dystans startowy.**
-Duża pula zasobów pozwala obu botom rozwinąć się porównywalnie, tanie jednostki zapełniają mapę
-armiami i wymuszają ciągłą walkę.
+Przepis na dobrą mapę pozostaje ten sam co przed poprawką metryk: **bogaty świat, tanie jednostki,
+umiarkowany dystans startowy.** To jest ważny wynik sam w sobie — zmiana dwóch wzorów metryk,
+przeliczenie wszystkich progów i usunięcie jednego wejścia z kryterium dynamizmu **nie przesunęły
+optimum**. Wniosek projektowy jest więc odporny na szczegóły konstrukcji funkcji oceny.
 
-Front Pareto (4 rozwiązania niezdominowane):
+### Front Pareto — 5 rozwiązań niezdominowanych
 
-| # | spawnDist | popMax | unitCost | BALANS | DYNAMIZM | teryt % | reconq % |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| 1 | 10 | 99 | 619 | 0,8422 | 0,8356 | 7,5 | 104,3 |
-| 2 | 10 | 98 | 414 | 0,8409 | 0,8361 | 8,0 | 114,9 |
-| 3 | 10 | 99 | 442 | 0,8380 | 0,8366 | 8,5 | 137,7 |
-| 4 | 13 | 99 | 402 | 0,8350 | 0,8372 | 9,1 | 141,8 |
+| # | spawnDist | popMax | unitCost | BALANS | DYNAMIZM | teryt % | growth % | mil % | reconq | lead/100 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 11 | 96 | 447 | **0,8418** | 0,8504 | 6,8 | 10,4 | 9,2 | 27,7 | 5,18 |
+| 2 | 13 | 90 | 447 | 0,8403 | 0,8597 | 7,9 | 10,7 | 10,5 | 33,1 | 4,19 |
+| 3 | 11 | 99 | 447 | 0,8402 | 0,8659 | 7,9 | 10,3 | 9,4 | 33,0 | 4,80 |
+| 4 | 11 | 96 | 412 | 0,8379 | 0,8660 | 8,3 | 11,2 | 10,2 | 33,2 | 4,89 |
+| 5 | 10 | 91 | 446 | 0,8292 | **0,8664** | 9,8 | 12,7 | 11,0 | 33,5 | 4,81 |
 
-### Zbieżność
+### NAJWAŻNIEJSZA ZMIANA: front ma teraz kształt
 
-Hiperobjętość: 0,6912 (pok. 1) → 0,7011 (pok. 5) → **0,7051** (pok. 16, dalej płasko do 25).
+W poprzednim przebiegu front był płaski w dynamizmie — cztery rozwiązania różniły się dynamizmem
+o 0,0016, przy szumie pomiarowym 0,0138. Rozpiętość wynosiła więc **0,12 odchylenia standardowego**,
+czyli była czystym szumem. Po poprawce metryk sytuacja się zmieniła:
 
-**99,4 % wyniku osiągnięto w pierwszych 20 % czasu** (pokolenie 5 z 25). Od pokolenia 16 krzywa
-jest całkowicie płaska. Wniosek do opisania: dla tej przestrzeni parametrów 15 pokoleń w zupełności
-wystarcza.
-
-**Uwaga o danych do wykresu.** `nsga2_postep.json` jest plikiem kontrolnym nadpisywanym po każdym
-pokoleniu, więc zawiera **wyłącznie ostatnią wartość** hiperobjętości (0,7051), a nie całą krzywą.
-Serię 25 punktów odtwarza się z `nsga2_front.json`, klucz `historia` — 428 wpisów z numerem
-pokolenia i parą ocen. Liczenie: dla każdego pokolenia `g` bierzesz wszystkie chromosomy ocenione
-do pokolenia `g` włącznie i liczysz hiperobjętość względem punktu odniesienia (0, 0), z celami
-zapisanymi jako wartości ujemne. Odtworzenie daje dokładnie liczby podane wyżej — 0,6912 / 0,7011 /
-0,7051 — więc wykres jest w pełni odtwarzalny. Jest to krzywa **skumulowana** (najlepszy front
-znaleziony do danego pokolenia) i tak trzeba ją podpisać; wartości drukowane w konsoli podczas
-przebiegu dotyczyły bieżącej populacji i nie zostały zapisane.
-
-### Najważniejszy wniosek: front Pareto to szum, a nie kompromis
-
-Cztery rozwiązania na froncie różnią się balansem o **0,0072**, a dynamizmem o **0,0016**.
-
-Do porównania wzięto 102 chromosomy z tego samego, najlepszego rejonu przestrzeni
-(`popMax ≥ 97`, `unitCost ≤ 460`, `spawn ≤ 13`) — czyli praktycznie ten sam zestaw parametrów —
-i zmierzono rozrzut ich ocen:
-
-| | rozpiętość na froncie | odchylenie standardowe w tym samym rejonie |
+| | przebieg stary | **przebieg nowy** |
 |---|---:|---:|
-| BALANS | 0,0072 | **0,0068** |
-| DYNAMIZM | 0,0016 | **0,0138** |
+| rozpiętość frontu — BALANS | 0,0072 | **0,0126** |
+| rozpiętość frontu — DYNAMIZM | 0,0016 | **0,0160** |
+| odchylenie standardowe ocen w rejonie optimum — BALANS | 0,0068 | 0,0102 |
+| odchylenie standardowe ocen w rejonie optimum — DYNAMIZM | 0,0138 | 0,0111 |
+| rozpiętość / odchylenie — BALANS | 1,06× | **1,24×** |
+| rozpiętość / odchylenie — DYNAMIZM | **0,12×** | **1,44×** |
+| korelacja obu ocen na samym froncie | brak porządku | **−0,574** |
 
-**Szum pomiarowy jest równy lub większy od całej szerokości frontu.** Cztery rozwiązania są
-statystycznie nierozróżnialne — to, które z nich trafiło na front, jest kwestią losu, a nie jakości.
+Front jest teraz **monotoniczny**: rozwiązanie nr 1 ma najlepszy balans i najsłabszy dynamizm,
+rozwiązanie nr 5 odwrotnie, a korelacja obu ocen na froncie wynosi −0,574. Jest to dokładnie ten
+kształt, który opisali autorzy artykułu: łagodny spadek dynamizmu przy rosnącym balansie.
 
-To nie jest wada implementacji, lecz **empiryczne potwierdzenie wyniku głównego z rozdziału 5**:
-skoro balans i dynamizm w tej mechanice kooperują, nie ma czego kompromisować, więc optymalizacja
-wielokryterialna **degeneruje się do jednokryterialnej**. Front Pareto zapada się do jednego
-punktu, a jego pozorna szerokość pochodzi wyłącznie z niepewności pomiaru.
+**Jak to sformułować — uczciwie, bo efekt jest słaby.** Rozpiętość frontu przekracza szum
+1,2–1,4-krotnie. To jest za mało, by mówić o wyraźnym kompromisie (przekonujące byłoby około
+2 odchyleń), ale wystarczająco dużo, by przestać mówić o czystym szumie. Poprawne sformułowanie:
+**po poprawieniu metryk front przestał być zdegenerowany i zaczął wykazywać uporządkowanie zgodne
+z artykułem, choć rozpiętość pozostaje bliska granicy rozdzielczości pomiaru.**
 
-Ten wniosek warto postawić na równi z wynikiem o kooperacji celów — jest jego bezpośrednią
-konsekwencją operacyjną i ma na poparcie 428 ocen.
+Warto przy tym powiedzieć wprost, co ten wynik zmienia w tezie z rozdz. 5. **Nie unieważnia jej.**
+Cele nadal kooperują globalnie — korelacja na 50 losowych konfiguracjach z całej przestrzeni
+genotypu wynosi +0,586. Kompromis pojawia się dopiero **lokalnie, w samym rejonie optimum**, gdzie
+oba kryteria są już blisko swoich maksimów i dalsza poprawa jednego kosztuje drugie. To jest
+bogatszy i bardziej wiarygodny obraz niż poprzedni: zbieżność na całej przestrzeni, wymiana dopiero
+na jej najlepszym skraju.
 
-### Dwa geny na krawędzi zakresu — zarzut zamknięty pomiarem
+### Uwaga metodologiczna: dwie różne korelacje, dwa różne pytania
 
-Uwaga metodologiczna, o którą recenzent zapyta na pewno.
+Na 408 chromosomach z tego przebiegu korelacja balansu z dynamizmem wynosi **+0,797**, a na
+50 konfiguracjach z pilotażu **+0,586**. Różnica nie jest sprzecznością — to dwa różne pomiary:
 
-- `population_max` = 99 w **138 z 428** chromosomów, przy górnej granicy 100
-- `populationToCreateNewUnit` ≤ 450 w **234 z 428**, przy dolnej granicy 400
+- pilotaż losuje konfiguracje metodą Latin Hypercube z **całej** przestrzeni genotypu, więc daje
+  nieobciążoną odpowiedź na pytanie „czy w tej grze mapy zbalansowane są też dynamiczne";
+- NSGA-II koncentruje próbkowanie tam, gdzie jest dobrze, i zawiera potomstwo dobrych rodziców,
+  więc jego populacja **nie jest losową próbą** przestrzeni.
 
-Optimum leżało **na krawędzi dozwolonej przestrzeni**, a nie w jej wnętrzu, więc trzeba było
-sprawdzić, czy zadeklarowany zakres nie obciął lepszych rozwiązań. Wykonano celowany przemiat poza
-granice — bez ponownego uruchamiania NSGA-II — dwa jednowymiarowe przekroje po siedem konfiguracji,
-każda oceniona w 60 meczach (razem 840 meczów, 17 minut). Skrypt `test_granic_genow.py`, dane
-`granice_genow_wyniki.json`.
+**W pracy podawaj +0,586 jako wynik główny** i wspominaj +0,797 wyłącznie jako obserwację
+z przebiegu optymalizacji, z tym zastrzeżeniem. Podanie wyższej liczby bez wyjaśnienia byłoby
+metodologicznie nieuczciwe.
 
-**Przemiat `population_max`** (zadeklarowana granica: 100; pozostałe geny w optimum):
+### Zbieżność — jeszcze szybsza niż poprzednio
 
-| wartość | BALANS | DYNAMIZM | teryt % | growth % | mil % | reconq % | peaks % |
-|---:|---:|---:|---:|---:|---:|---:|---:|
-| 90 | 0,8238 | 0,8265 | 11,0 | 14,4 | 12,6 | 139,4 | 44,4 |
-| 100 | 0,8365 | 0,8367 | 8,8 | 12,3 | 9,1 | 128,2 | 37,0 |
-| 120 | 0,8358 | 0,8380 | 8,9 | 11,9 | 9,2 | 131,8 | 36,0 |
-| 140 | 0,8377 | 0,8393 | 8,5 | 12,0 | 8,6 | 136,7 | 35,0 |
-| 160 | 0,8410 | 0,8412 | 8,0 | 11,1 | 8,3 | 135,2 | 33,5 |
-| 180 | 0,8366 | 0,8403 | 8,5 | 12,3 | 8,1 | 122,3 | 34,2 |
-| 200 | 0,8385 | 0,8387 | 8,4 | 11,6 | 8,4 | 145,3 | 35,5 |
+Hiperobjętość (krzywa skumulowana, odtwarzalna z `nsga2_front.json`, klucz `historia`):
 
-**Przemiat `populationToCreateNewUnit`** (zadeklarowana granica: 400; pozostałe geny w optimum):
+| pokolenie | ocen łącznie | hiperobjętość |
+|---:|---:|---:|
+| 1 | 20 | 0,7011 |
+| 2 | 40 | 0,7227 |
+| 9 | 173 | 0,7258 |
+| 11 | 209 | 0,7279 |
+| 15 | 275 | 0,7280 |
+| 22 | 376 | 0,7293 |
+| 25 | 408 | 0,7293 |
 
-| wartość | BALANS | DYNAMIZM | teryt % | growth % | mil % | reconq % | conq % | długość % |
+**99 % końcowej wartości osiągnięto już w pokoleniu 2.** Reszta przebiegu, czyli ponad
+10 godzin obliczeń, poprawiła wynik o 0,0066. Wniosek do opisania jest mocniejszy niż poprzednio:
+dla tej przestrzeni parametrów wystarcza **kilka pokoleń**, a nie kilkanaście. Wartości
+hiperobjętości nie porównuj między przebiegami — system oceny się zmienił, więc skala też.
+
+### Ograniczenie, które wyszło na jaw: dynamizm nasyca się u góry
+
+Rzecz do opisania w rozdziale o ograniczeniach, bo jest widoczna w danych.
+
+**118 z 408 chromosomów (29 %) osiągnęło dynamizm co najmniej 0,860**, przy matematycznym sufcie
+0,8667. Dla porównania balans przekroczył 0,840 tylko 3 razy na 408. Przyczyna: oba wejścia
+dynamizmu nasycają się w rejonie optimum. Zmiany prowadzenia dochodzą do 6,00 na 100 tur, przy
+punkcie pełnego nasycenia zbioru WYSOKI ustawionym na 4,91 (maksimum z pilotażu), a wskaźnik
+odbijania do 35,6 przy nasyceniu na 34,3.
+
+Ma to dwie konsekwencje, obie warte jednego akapitu:
+
+1. **Zmierzona rozpiętość frontu w dynamizmie jest wartością dolną.** Gdyby skala nie kończyła się
+   tam, gdzie się kończy, kompromis mógłby okazać się szerszy. Wniosek „front ma kształt" jest więc
+   bezpieczny, a wniosek „kształt jest słaby" — obciążony w stronę zaniżenia.
+2. **Kalibracja progów pochodzi z innego rozkładu niż rejon optimum.** Progi wyznaczono na losowej
+   próbce z całej przestrzeni genotypu, a NSGA-II pracuje w jej najlepszym zakątku, gdzie wartości
+   wychodzą poza zmierzony wtedy rozkład. To ta sama uwaga, która dotyczyła punktów kulminacyjnych.
+   Naturalne domknięcie: powtórna kalibracja progów dynamizmu na rozkładzie z okolic optimum,
+   z punktem nasycenia przesuniętym na 6,0 i 35,6. Wymagałoby to kolejnego przebiegu, więc jest
+   kandydatem na „dalsze badania", a nie zadaniem do tej pracy.
+
+### Problem dwóch genów na krawędzi zakresu — w dużej mierze zniknął
+
+Poprzedni przebieg miał `population_max` = 99 w 138 z 428 chromosomów i `populationToCreateNewUnit`
+≤ 450 w 234 z 428, a front zawierał wartości 99, 99, 99 oraz 402. Optimum leżało na krawędzi
+dozwolonej przestrzeni.
+
+Teraz:
+
+| | stary przebieg | **nowy przebieg** |
+|---|---:|---:|
+| `population_max` ≥ 99 | 138 / 428 | **67 / 408** |
+| `population_max` na froncie | 98–99 | **90, 91, 96, 96, 99** |
+| `populationToCreateNewUnit` na froncie | 402–619 | **412–447** |
+| mediana `population_max` | 99 | **91** |
+
+Optimum przesunęło się do **wnętrza** dozwolonej przestrzeni. Zarzut „zakres genotypu mógł obciąć
+lepsze rozwiązania" traci więc znaczną część siły już na podstawie samego rozkładu wyników.
+
+**Zastrzeżenie:** przemiat poza granice zakresów (opisany poniżej) wykonano na **poprzedniej** wersji
+metryk. Jego wnioski jakościowe — nasycenie oceny poza zakresem i płaskowyż wokół optimum — pozostają
+prawdopodobne, ale liczby nie są porównywalne z obecnym systemem. Jeśli chcesz mieć cały rozdział na
+jednych metrykach, wystarczy powtórzyć `test_granic_genow.py`, około 17 minut.
+
+### Przemiat poza granice zakresów genów — powtórzony na aktualnych metrykach
+
+14 konfiguracji × 60 meczów = 840 meczów, 17 minut. Dwa jednowymiarowe przekroje wokół punktu
+odniesienia (spawn 10, popMax 99, unitCost 420). Dane: `granice_genow_wyniki.json`.
+
+**Przemiat `population_max`** (zadeklarowana granica: 100):
+
+| wartość | BALANS | DYNAMIZM | teryt % | growth % | reconq | peaks % | conq % | długość % |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 150 | 0,8374 | 0,8337 | 8,6 | 11,7 | 9,0 | 126,1 | 99,3 | 74,0 |
-| 250 | 0,8385 | 0,8286 | 8,4 | 11,3 | 9,8 | 142,2 | 99,6 | 81,4 |
-| 350 | 0,8278 | 0,8273 | 10,3 | 14,1 | 10,8 | 126,8 | 98,3 | 73,3 |
-| 420 | 0,8303 | 0,8312 | 9,9 | 13,5 | 10,5 | 131,4 | 98,8 | 76,3 |
-| 500 | 0,8290 | 0,8262 | 9,9 | 14,2 | 10,7 | 123,9 | 97,1 | 72,3 |
-| 650 | 0,8237 | 0,8292 | 10,7 | 15,4 | 11,1 | 104,6 | 95,5 | 68,7 |
-| 800 | 0,8234 | **0,5345** | 9,6 | 15,5 | 11,5 | **70,1** | 88,6 | 55,1 |
+| 90 | 0,8235 | 0,8430 | 10,3 | 14,6 | 28,3 | 66,8 | 98,5 | 64,9 |
+| 99 (odniesienie) | 0,8395 | 0,8634 | 7,9 | 11,0 | 31,6 | 62,1 | 98,8 | 76,8 |
+| 100 | 0,8219 | 0,8483 | 10,9 | 15,0 | 32,1 | 67,3 | 98,2 | 75,5 |
+| 120 | 0,8305 | 0,8592 | 9,6 | 13,1 | 33,7 | 58,9 | 98,2 | 75,4 |
+| 140 | 0,8359 | **0,8667** | 8,7 | 11,4 | 34,6 | 60,5 | 99,3 | 79,2 |
+| 160 | 0,8331 | 0,8665 | 8,9 | 12,5 | 34,2 | 60,4 | 98,6 | 77,5 |
+| 180 | **0,8410** | **0,8667** | 7,6 | 10,6 | 34,8 | 58,3 | 98,0 | 76,7 |
+| 200 | 0,8297 | 0,8569 | 9,7 | 12,9 | 36,1 | 62,2 | 99,3 | 79,6 |
 
-**Wynik 1 — zakres genotypu obejmował optimum.** Najlepsza konfiguracja poza zakresem przewyższa
-najlepszą w zakresie o 0,0045 (`population_max`) i o 0,0081 (`populationToCreateNewUnit`), przy
-progu istotności równym dwóm odchyleniom szumu, czyli 0,0136 dla balansu i 0,0276 dla dynamizmu.
-Żadna z różnic nie przekracza progu. Poszerzenie zakresu genów nie poprawiłoby wyniku.
+**Przemiat `populationToCreateNewUnit`** (zadeklarowana granica: 400):
 
-**Wynik 2 — optimum jest płaskowyżem, a nie szczytem.** Trzynaście z czternastu konfiguracji mieści
-się w przedziale 0,82–0,84, czyli w granicach szumu. Cały rejon `population_max` ≥ 100
-i `populationToCreateNewUnit` ≤ 500 daje wyniki nierozróżnialne. To ważne dla wniosków projektowych:
-zalecenie jest **odporne**, a nie wyostrzone — projektant nie musi trafić w punkt, wystarczy, że
-wejdzie w ten obszar. Wyjaśnia to również, dlaczego NSGA-II przestał się poprawiać po 16 pokoleniach.
+| wartość | BALANS | DYNAMIZM | teryt % | growth % | reconq | conq % | długość % |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 150 | 0,8235 | 0,8508 | 10,7 | 14,0 | 32,7 | 99,1 | 76,8 |
+| 250 | 0,8332 | 0,8658 | 9,1 | 12,0 | 33,0 | 98,9 | 74,0 |
+| 350 | 0,8319 | 0,8632 | 9,3 | 12,8 | 31,6 | 98,0 | 74,1 |
+| 420 | **0,8395** | 0,8634 | 7,9 | 11,0 | 31,6 | 98,8 | 76,8 |
+| 500 | 0,8337 | 0,8574 | 8,8 | 12,4 | 29,5 | 97,2 | 66,2 |
+| 650 | 0,8244 | 0,8427 | 10,6 | 14,4 | 29,2 | 97,5 | 77,5 |
+| 800 | 0,8132 | 0,8323 | 11,6 | 16,8 | 23,9 | 91,1 | 68,2 |
 
-Skok następuje **poniżej** dolnej krawędzi płaskowyżu: przy `population_max` = 90 wszystkie surowe
-metryki są wyraźnie gorsze (nierównowaga terytorialna 11,0 % wobec 8,0–8,9 % powyżej setki).
-Zadeklarowana granica 100 wypadła więc dokładnie na początku płaskowyżu — algorytm napierał na nią
-nie dlatego, że optimum leżało dalej, lecz dlatego, że płaskowyż zaczyna się właśnie tam.
+### Skrypt wypisał „zakres obciął optimum" — i był to fałszywy alarm
 
-**Wynik 3 — i to jest najmocniejszy argument — dalej nie ma dokąd rosnąć.** Sufit matematyczny
-wyjścia systemu rozmytego wynosi **0,8667** dla balansu i **0,8605** dla dynamizmu; tyle daje
-defuzyfikacja środkiem ciężkości przy regule WYSOKI odpalonej z pełną siłą. Rejon optimum osiąga
-0,8365, czyli **96,5 % sufitu**. Mapa hipotetycznie idealna — o wszystkich trzech nierównowagach
-równych zero — dostałaby zaledwie o **0,0302** więcej, czyli około czterech odchyleń szumu. Ten
-argument zamyka temat lepiej niż sam przemiat, bo nie zależy od liczby zmierzonych punktów.
+Wynik wart opisania w pracy, bo pokazuje, jak łatwo o błędny wniosek statystyczny. Skrypt orzekł, że
+poza zakresem `population_max` jest **istotnie** lepiej (+0,0174 balansu przy progu 0,0136). Werdykt
+był nieprawdziwy z trzech niezależnych powodów, wszystkie już naprawione w kodzie:
 
-**Wynik 4 — funkcja przystosowania nadal reaguje, gdy powinna.** Konfiguracja
-`populationToCreateNewUnit` = 800 daje załamanie dynamizmu z 0,83 do 0,5345. Nie jest to zadziałanie
-bramki poprawności: wskaźnik podboju wynosi 88,6 % (próg 60 %), a długość gry 55,1 % (próg 15 %).
-Przyczyna leży w bazie reguł — wskaźnik odbijania spada ze 130 % do 70,1 %, czyli ze zbioru WYSOKI
-do ŚREDNI, przez co aktywuje się reguła o werdykcie ŚREDNI zamiast WYSOKI. Mechanizm jest czytelny:
-drogie jednostki oznaczają mniej oddziałów na mapie, mniej kontaktu i nieruchomy front. To dobry,
-jednoakapitowy dowód, że płaskowyż nie wynika z nieczułości metryki, tylko z rzeczywistego braku
-różnic w badanym rejonie.
+1. **Nieaktualna stała szumu.** Skrypt używał wartości 0,0068 i 0,0138, zmierzonych na *poprzednim*
+   systemie oceny. Na obecnym odchylenie standardowe ocen w rejonie optimum wynosi **0,0102 i 0,0111**
+   (275 chromosomów z przebiegu NSGA-II). Właściwy próg to zatem 0,0204, a nie 0,0136.
+2. **Punkt odniesienia nie trafił do grupy „w zakresie".** Konfiguracja `population_max` = 99 była
+   oceniana w tym samym przebiegu — jako punkt odniesienia drugiego przekroju — ale w porównaniu
+   uwzględniano wyłącznie wartości 90 i 100. Porównywano więc najlepszy punkt spoza zakresu
+   z konfiguracjami *gorszymi od znalezionego optimum*. Po dołączeniu punktu 99 najlepszy wynik
+   w zakresie rośnie z 0,8235 do **0,8395**, a różnica spada z +0,0174 do **+0,0014**.
+3. **Porównywano maksimum z maksimum przy różnej liczbie próbek.** Maksimum z 5 losowań jest
+   z definicji wyższe niż maksimum z 3, nawet gdy rozkłady są identyczne. Sam ten efekt daje
+   przewagę około **+0,006** na czysto losowej podstawie.
 
-### Ograniczenie ujawnione przy okazji: jedno wejście dynamizmu przestaje działać w optimum
+Po poprawieniu wszystkich trzech, przy porównaniu **średnich** z właściwym błędem standardowym:
 
-Rzecz do opisania uczciwie, bo wychodzi wprost z danych. W całym rejonie optimum uśrednione
-Peak Differences przyjmują wartości 33–45 %, podczas gdy zbiór ŚREDNI — czyli wartość pożądana
-(rozdz. 4.3) — obejmuje przedział 52,2–68,3 %. Metryka nigdy nie trafia w zbiór, dla którego została
-zaprojektowana; jej przynależność do zbioru NISKI działa jako **ogranicznik** oceny dynamizmu, a nie
-jako sygnał dramaturgii. Gdyby przy pozostałych wejściach z optimum piki trafiły w zbiór ŚREDNI,
-ocena dynamizmu wzrosłaby z 0,8367 do 0,8483.
+| przemiat | wielkość | w zakresie | poza zakresem | różnica | istotność |
+|---|---|---:|---:|---:|---|
+| `population_max` | BALANS | 0,8283 | 0,8340 | +0,0057 | 0,77 σ — nieistotne |
+| `population_max` | DYNAMIZM | 0,8515 | 0,8632 | +0,0116 | 1,44 σ — nieistotne |
+| `populationToCreateNewUnit` | BALANS | 0,8277 | 0,8296 | +0,0019 | 0,24 σ — nieistotne |
+| `populationToCreateNewUnit` | DYNAMIZM | 0,8489 | 0,8599 | +0,0110 | 1,30 σ — nieistotne |
 
-Podobnie zmiany prowadzenia w rejonie optimum wynoszą 3,8–5,2 na 100 tur, przy maksimum z pilotażu
-równym 4,25 — zbiór WYSOKI jest tam w pełni nasycony i również przestaje różnicować.
+**Wniosek: zakres genotypu nie obciął optimum w sposób dający się wykazać.** Jest to zgodne z tym,
+co widać w samym przebiegu NSGA-II: optimum weszło do wnętrza dozwolonej przestrzeni (front zawiera
+`population_max` 90–99, a nie same 99).
 
-Wniosek do rozdziału o ograniczeniach: **optimum znalezione przez NSGA-II leży poza zakresem, na
-którym kalibrowano system rozmyty.** Nie unieważnia to wyniku, bo uporządkowanie ocen pozostaje
-poprawne, ale oznacza, że w samym optimum system rozróżnia słabiej niż w środku rozkładu
-pilotażowego. Naturalnym domknięciem byłaby powtórna kalibracja progów na rozkładzie z okolic
-optimum — osobny eksperyment i dobry punkt do „dalszych badań".
+### Ale trzeba dopisać zastrzeżenie, bo „brak poprawy" nie znaczy „nie ma poprawy"
 
----
+Powyżej `population_max` ≈ 140 **funkcja oceny przestaje cokolwiek widzieć**:
+
+| popMax | DYNAMIZM | reconquering |
+|---:|---:|---:|
+| 120 | 0,8592 | 33,7 |
+| 140 | **0,8667 = sufit** | 34,6 |
+| 160 | 0,8665 | 34,2 |
+| 180 | **0,8667 = sufit** | 34,8 |
+| 200 | 0,8569 | 36,1 |
+
+Wskaźnik odbijania przekracza tam punkt pełnego nasycenia zbioru WYSOKI (34,30), a dynamizm dobija
+do matematycznego sufitu 0,8667 co do czwartego miejsca po przecinku. Kryterium dynamizmu jest
+w tym rejonie **ślepe z konstrukcji**.
+
+Surowe metryki sugerują przy tym słaby, ale konsekwentny trend dalszej poprawy:
+
+- korelacja `population_max` z nierównowagą terytorialną: **−0,360**, z gospodarczą **−0,443**
+- średnia nierównowaga terytorialna: **10,6 %** dla 90–100 wobec **8,8 %** dla 120–200
+
+Trend nie jest monotoniczny (wartość 200 wypada gorzej niż 180) i mieści się w granicach szumu, więc
+nie da się na jego podstawie niczego rozstrzygnąć. Uczciwe sformułowanie do pracy brzmi:
+**nie wykryto istotnej poprawy poza zadeklarowanym zakresem, przy czym powyżej `population_max` ≈ 140
+funkcja przystosowania osiąga sufit i nie byłaby w stanie takiej poprawy wykryć, nawet gdyby
+zachodziła.** To jest to samo ograniczenie, które opisano wyżej przy nasyceniu dynamizmu — tutaj
+widać je bezpośrednio.
+
+### Co pokazuje przemiat kosztu jednostki
+
+Ten przekrój jest znacznie czytelniejszy i nadaje się na wykres do pracy. Poniżej granicy 400 nie ma
+poprawy, powyżej 500 jest wyraźne pogorszenie, monotoniczne we wszystkich metrykach naraz:
+
+- `unitCost` 800: balans **0,8132**, dynamizm 0,8323, nierównowaga terytorialna 11,6 %, odbijanie
+  spada do 23,9, a wskaźnik podboju do 91,1 %
+- optimum wypada na 420, dokładnie tam, gdzie umieścił je NSGA-II (front: 412–447)
+
+**Dolna granica zakresu 400 była więc dobrana trafnie**, a górna 1000 z dużym zapasem — koszt
+powyżej 650 nie ma sensu projektowego.
 
 ## 9. Liczby, które warto mieć pod ręką
 
@@ -1073,31 +1408,48 @@ optimum — osobny eksperyment i dobry punkt do „dalszych badań".
 | Rozkład populacji | 5 progów po 20% pól, suma na mapie stała |
 | Rozpiętość ocen przed kalibracją | balans 0,19 · dynamizm 0,02 |
 | Rozpiętość ocen po kalibracji | balans 0,134–0,834 · dynamizm 0,156–0,833 |
-| Korelacja balans ↔ dynamizm | **+0,651** na aktualnej kalibracji (+0,54 do +0,65 historycznie) |
-| Ta sama korelacja bez wejścia Peak Differences | **+0,586** — wynik nie jest artefaktem systemu |
+| **Korelacja balans ↔ dynamizm (aktualna)** | **+0,586** — dynamizm bez składnika mierzącego nierównowagę |
+| Ta sama korelacja z punktami kulminacyjnymi w dynamizmie | +0,651 — wersja porzucona jako częściowo cyrkularna |
+| Ta sama korelacja z odwróconym kierunkiem pików | +0,834 — wersja odrzucona, mierzy balans dwa razy |
 | Korelacja Peak Differences z nierównowagą terytorialną | +0,930 wzorem (7); +0,893 starym wzorem |
 | Korelacja Peak Differences z odbijaniem / bitwami | −0,304 / −0,399 — kierunek odwrotny niż w artykule |
 | Współczynnik kuli śnieżnej (growth vs territorial) | 1,17 przy korelacji +0,94 |
 | Udział mapy w zmienności wyniku | 12–53 % (reszta to losowość symulacji) |
-| Przewaga pierwszego ruchu | 53,6 % zwycięstw, 1,0 sigma — nie wykryto |
-| Przewaga pozycyjna bazy nr 1 | 55,8 % przed poprawką → 48,4 % po |
+| Przewaga pierwszego ruchu | 51,2 % zwycięstw, 0,74 sigma — nie wykryto (300 par) |
+| Granica wykrywalności przewagi pierwszego ruchu | 53,1 % (poprzednio 57 % przy 100 parach) |
+| Przewaga pozycyjna bazy nr 1 | 55,8 % przed poprawką (4,7 σ) → **54,7 % po (1,85 σ)** |
+| Par, w których ten sam bot wygrał obie rozgrywki | **232 z 300 (77 %)**, przy 50 % oczekiwanych |
 | Meczów kończących się remisem | 17,1 % |
-| Ocena mapy wzorcowej (symetria 180°) | balans 0,590 · dynamizm 0,759 |
-| Ocena mapy losowej | balans 0,174 · dynamizm 0,561 |
-| Ocena map celowo zepsutych | balans 0,141 do 0,000 |
+| **Mapa wzorcowa przy genach z optimum** | **balans 0,8475 · dynamizm 0,8667 — 97,8 % i 100,0 % sufitu** |
+| Mapa losowa przy tych samych genach | balans 0,8320 · dynamizm 0,8468 |
+| Najlepsze rozwiązanie z frontu NSGA-II | balans 0,8418 · dynamizm 0,8504 — **gorsze od mapy wzorcowej** |
+| Najniższe nierównowagi w projekcie (mapa wzorcowa) | terytorialna 6,4 % · gospodarcza 8,1 % · militarna 8,9 % |
+| Ta sama mapa wzorcowa przy genach 12 / 60 / 700 | balans 0,4148 · nierównowaga terytorialna 14,0 % |
+| Ocena mapy losowej przy genach 12 / 60 / 700 | balans 0,1644 · dynamizm 0,5000 |
+| Naprawialność zaburzeń parametrami świata | przestrzenne +0,4639 balansu · zasobowe **+0,0096** |
+| Rozdzielczość między dwiema mapami zepsutymi | 0,0025 przed poprawką metryk → **0,2051** po |
+| Paradoks map kontrolnych | „bazy obok siebie”: nierównowaga 0,9 % przy amplitudzie 100,9 % |
 | Nasycenie skali przed poprawką / po | 24 % / 2 % konfiguracji na dnie |
-| NSGA-II: ocenionych konfiguracji | 428 (populacja 20, 25 pokoleń, 11,7 h) |
-| NSGA-II: hiperobjętość | 0,6912 → 0,7051, płaska od pokolenia 16 |
-| Znalezione optimum | popMax ≈ 99 · unitCost ≈ 420 · spawnDist ≈ 10 |
-| Szerokość frontu Pareto vs szum | 0,0072 wobec sd 0,0068 — nierozróżnialne |
-| Przemiat poza granice genów | 14 konfiguracji × 60 meczów = 840 meczów, 17 min |
-| Zysk poza zakresem `population_max` | +0,0045 przy progu istotności 0,0136 — brak |
-| Zysk poza zakresem `populationToCreateNewUnit` | +0,0081 przy progu istotności 0,0136 — brak |
-| Sufit oceny rozmytej (balans / dynamizm) | 0,8667 / 0,8605 |
-| Ocena w optimum wobec sufitu | 0,8365 = 96,5 % sufitu; do ideału brakuje 0,0302 |
+| NSGA-II: ocenionych konfiguracji | 408 (populacja 20, 25 pokoleń, 11 h 45 min, 112 genotypów z pamięci) |
+| NSGA-II: hiperobjętość | 0,7011 → 0,7293; **99 % osiągnięte w pokoleniu 2** |
+| Znalezione optimum | popMax 90–99 · unitCost 412–447 · spawnDist 10–13 (mediany 91 / 439 / 11) |
+| Optimum przed i po poprawce metryk | ten sam rejon — wniosek projektowy odporny na zmianę oceny |
+| Front Pareto: rozpiętość vs szum, BALANS | 0,0126 wobec sd 0,0102 — **1,24×** |
+| Front Pareto: rozpiętość vs szum, DYNAMIZM | 0,0160 wobec sd 0,0111 — **1,44×** (poprzednio 0,12×) |
+| Korelacja ocen na samym froncie | **−0,574** — widoczny kompromis |
+| Korelacja ocen na 408 chromosomach z przebiegu | +0,797 (próba obciążona, nie podawać jako wynik główny) |
+| Przemiat poza granice genów | 14 konfiguracji × 60 meczów, 17 min, na aktualnych metrykach |
+| Zysk poza zakresem `population_max` | +0,0057 balansu (0,77 σ) · +0,0116 dynamizmu (1,44 σ) — brak |
+| Zysk poza zakresem `populationToCreateNewUnit` | +0,0019 balansu (0,24 σ) · +0,0110 dynamizmu (1,30 σ) — brak |
+| Szum oceny przy 60 meczach (aktualny system) | balans 0,0102 · dynamizm 0,0111 (275 chromosomów) |
+| Ślepota funkcji oceny | powyżej `population_max` ≈ 140 dynamizm dobija do sufitu 0,8667 |
+| Sufit oceny rozmytej (balans i dynamizm) | 0,8667 |
+| Najlepsze osiągnięte wobec sufitu | balans 0,8418 = 97,1 % · dynamizm 0,8664 = **100,0 %** |
+| Chromosomów z dynamizmem na sufcie | 118 z 408 (29 %) — kryterium nasyca się u góry |
+| Chromosomów z balansem ≥ 0,840 | 3 z 408 |
 | Reconquering wg wzoru (6) z artykułu | 0,0006–0,0036 na turę, przy progu WYSOKI = 0,1 |
 | Reguł w bazie balansu | 27 (komplet 3³) |
-| Reguł w bazie dynamizmu | 18 (2 × 3 × 3); po wdrożeniu wariantu C — 6 (2 × 3) |
+| Reguł w bazie dynamizmu | 6 (2 × 3), po przeniesieniu punktów kulminacyjnych do diagnostyki |
 | Błąd średniej przy 20 meczach | terytorium ±2,0 · gospodarka ±2,5 · odbijanie ±9,7 |
 
 **Progi funkcji przynależności — wersja aktualna** (kwantyl 25 % / mediana / kwantyl 75 % / maksimum,
@@ -1190,9 +1542,9 @@ Numery stron trzeba dopisać z własnego egzemplarza PDF.
 | **przedmiot ewolucji** | chromosomem jest **sama mapa**: lista 15–30 planet, każda z współrzędnymi, rozmiarem i liczbą statków; długość chromosomu zmienna, liczba planet też podlega self-adaptacji | chromosomem są **trzy parametry generatora**; mapa powstaje losowo z tych parametrów |
 | agenci | trzy **różne** boty z Google AI Challenge 2010 (Manwe, Flagscapper, fglider), wszystkie z pierwszej setki rankingu | dwa **identyczne** boty na drzewie priorytetów |
 | algorytm | samoadaptacyjny EA (mutacja gaussowska i całkowitoliczbowa, operator cut-and-splice), populacja μ=10, λ=100 | NSGA-II z pymoo, populacja 20, 25 pokoleń |
-| budżet | 10 000 ewaluacji na przebieg, 10 przebiegów | 428 ewaluacji, po 60 meczów każda |
+| budżet | 10 000 ewaluacji na przebieg, 10 przebiegów | 408 ewaluacji, po 60 meczów każda |
 | funkcje przynależności | ogólne, **nieskalibrowane**, rozpięte na teoretycznym zakresie zmiennej (rys. 2 w artykule) | kalibrowane na kwantylach rozkładów z pilotażu |
-| bazy reguł | 3 reguły balansu, 7 reguł dynamizmu, **świadomie niekompletne** | 27 i 18 reguł, komplet |
+| bazy reguł | 3 reguły balansu, 7 reguł dynamizmu, **świadomie niekompletne** | 27 i 6 reguł, komplet |
 | wejścia balansu | nierównowaga terytorialna, gospodarcza, militarna | te same trzy |
 | wejścia dynamizmu | wskaźnik podboju, wskaźnik odbijania, długość gry oraz trzy punkty kulminacyjne | zmiany prowadzenia i wskaźnik odbijania; podbój i długość gry przeniesione do bramek, punkty kulminacyjne do metryk diagnostycznych |
 | wyostrzanie | t-norma min, t-konorma max, modyfikator *very* jako x², środek ciężkości | skfuzzy: min/max, centroid |
@@ -1210,7 +1562,8 @@ exhaustively cover all possible combinations of input variables (…) this does 
 because the aforementioned rules can still be activated to some degree in this situation (there are
 two input fuzzy sets overlapping the whole input domain)". Ich zbiory NISKI i WYSOKI pokrywają całą
 dziedzinę, więc zawsze coś się aktywuje. U nas po kalibracji zbiory są węższe i przy trzech stanach
-lingwistycznych pojawiły się dziury, stąd konieczność uzupełnienia baz do 27 i 18 reguł. **Opisz to
+lingwistycznych pojawiły się dziury, stąd konieczność uzupełnienia baz do kompletu — obecnie 27 reguł
+balansu i 6 reguł dynamizmu. **Opisz to
 jako konsekwencję kalibracji, a nie jako poprawianie błędu autorów** — inaczej recenzent znający
 artykuł wychwyci nadinterpretację.
 
@@ -1361,6 +1714,14 @@ otworzy.
 Rozdział 11 powstał z lektury artykułu z Natural Computing. Ta sekcja jest jego niezależną
 kontrolą: sprawdzeniem twierdzeń w kodzie Unity, w `pipeline_fuzzy.py` i w danych pilotażowych.
 
+> **Jak czytać ten rozdział.** Jest to zapis analizy, która doprowadziła do poprawienia metryk —
+> powstał **przed** wdrożeniem wzorów (6) i (7) oraz przed przeniesieniem punktów kulminacyjnych do
+> diagnostyki. Podawane tu liczby opisują stan sprzed tych zmian i **nie są aktualnymi wynikami
+> pracy**; w szczególności korelacja +0,6306 dotyczy systemu, w którym pik był jeszcze wejściem
+> dynamizmu, a obecna wartość to **+0,586** (rozdz. 5). Rozdział zachowano, ponieważ dokumentuje
+> rozumowanie stojące za zmianami i zawiera argumenty, których nie ma nigdzie indziej — a jeden
+> z jego wniosków okazał się później błędny, co samo w sobie jest materiałem na pracę (rozdz. 12.4).
+
 ### 12.1. Potwierdzone w kodzie — obie „poważne" rozbieżności są prawdziwe
 
 **Reconquering Rate.** [BotTurnManager.cs](Assets/Scripts/BotTurnManager.cs), linia 320:
@@ -1426,10 +1787,14 @@ To jest gotowy, jednostronicowy dowód tezy całej pracy — mocniejszy od dotyc
 mówi „progi były źle dobrane", tylko „progi z artykułu, przeniesione dosłownie, dają wynik
 degenerujący". Wstaw go na początek rozdziału o kalibracji.
 
-### 12.4. Nowe — co dokładnie da wdrożenie wzoru (7) i dlaczego warto to zrobić
+### 12.4. Przewidywanie skutków wzoru (7) — i jak wypadło w zderzeniu z pomiarem
 
-Rozdz. 4.3 zostawia wybór między wdrożeniem wzoru z artykułu a uczciwym opisem uproszczenia.
-Argument za wdrożeniem jest silniejszy, niż się tam wydaje, a wynik da się przewidzieć.
+**Ten podrozdział zachowano celowo, bo postawiona tu prognoza okazała się w połowie błędna.**
+Warto go opisać w pracy jako przykład rzetelnego postępowania: hipotezę sformułowano przed
+eksperymentem, a potem uczciwie porównano z wynikiem. Wzór (7) został wdrożony, pilotaż powtórzony,
+a rezultat opisano w rozdz. 4.3.
+
+Argumentacja z chwili przed eksperymentem brzmiała następująco.
 
 Każdy mecz zaczyna się symetrycznie: obaj boty mają po jednym polu, więc różnica ze znakiem
 d = (φ¹−φ²)/(φ¹+φ²) wynosi w turze zerowej dokładnie 0. Stąd max_j(d) ≥ 0 i min_j(d) ≤ 0, czyli
@@ -1441,16 +1806,25 @@ A my wiemy z pomiaru, że przechodzi: liczba zmian prowadzenia wynosi 9–20 na 
 składnik |min(d)| jest więc zawsze niezerowy i mierzy dokładnie to, czego obecna metryka nie widzi:
 **jak daleko zaszedł przeciwnik w swoim najlepszym momencie.**
 
-Trzy konsekwencje:
+Przewidywano trzy konsekwencje. Poniżej każda z nich zestawiona z tym, co faktycznie wyszło:
 
-1. Kierunek metryki najprawdopodobniej wróci do monotonicznego — wysoka wartość zacznie oznaczać
-   mecz z wahnięciami, a nie dominację. Wtedy zbiorem pożądanym znów jest WYSOKI, tak jak
-   w artykule, a obecne „świadome odstępstwo" znika i zastępuje je zgodność.
-2. Odpadnie zarzut, że tercylowa tabela w rozdz. 4.3 jest niemal tautologią.
-3. Pojawi się nowe pytanie do opisania: Δ ze wzoru (7) będzie **częściowo redundantny ze zmianami
-   prowadzenia**, bo obie wielkości mierzą to samo zjawisko — pierwsza w sposób ciągły, druga
-   dyskretnie. To nie jest problem, tylko materiał na akapit: nasza własna metryka okazała się
-   dyskretnym przybliżeniem tej, którą autorzy zdefiniowali w sposób ciągły.
+| przewidywanie | co się stało |
+|---|---|
+| 1. Kierunek metryki wróci do monotonicznego, wartością pożądaną znów będzie WYSOKI, a odstępstwo od artykułu zastąpi zgodność | **NIETRAFIONE.** Kierunek się nie odwrócił. Po wdrożeniu wzoru (7) korelacja pika z nierównowagą terytorialną **wzrosła** z +0,893 do +0,930, a korelacje z odbijaniem i bitwami pozostały ujemne. Metryka trafiła ostatecznie do diagnostyki (rozdz. 4.3.1) |
+| 2. Odpadnie zarzut, że tabela tercylowa jest tautologią | **TRAFIONE.** Nowa tabela tercylowa liczona jest wzorem źródłowym, więc nie jest już tautologiczna — i mimo to pokazuje ten sam kierunek, co czyni wniosek znacznie mocniejszym |
+| 3. Nowa metryka będzie częściowo redundantna ze zmianami prowadzenia | **NIEISTOTNE.** Pytanie straciło sens, bo pik przestał być wejściem systemu. Zmiany prowadzenia okazały się natomiast redundantne w umiarkowanym stopniu z odbijaniem (+0,616), co opisano w rozdz. 4.6 |
+
+**Dlaczego prognoza zawiodła — to jest właśnie wartościowa część.** Rozumowanie zakładało, że skoro
+mecz startuje symetrycznie, to składnik `|min(d)|` zmierzy „jak daleko zaszedł przeciwnik w swoim
+najlepszym momencie". Założenie było poprawne formalnie, ale puste treściowo: w grze bez mechaniki
+powrotu przegrany nigdy nigdzie nie zachodzi, więc `|min(d)|` mierzy wyłącznie zmienność pierwszych
+kilkudziesięciu tur, kiedy obaj boci mają po kilka pól i jedno zdobyte pole daje ogromną wartość
+względną. Potwierdziła to później mapa kontrolna z bazami obok siebie: najniższa nierównowaga
+w zestawieniu przy najwyższej amplitudzie (rozdz. 7).
+
+**Wniosek metodologiczny do pracy:** poprawne odtworzenie wzoru z literatury nie gwarantuje
+odtworzenia jego znaczenia. Wzór przenosi się zawsze, interpretacja tylko wtedy, gdy mechanika gry
+spełnia założenia, na których go zbudowano.
 
 Koszt: kilkanaście linii w `BotTurnManager.cs` (zapamiętywać `min` i `max` różnicy **ze znakiem**
 zamiast maksimum modułu, dla wszystkich trzech zasobów) plus jeden pilotaż. Przy tempie zmierzonym
