@@ -26,6 +26,7 @@ ramką ostrzegawczą. Nie przepisuj z nich liczb bez jej przeczytania:
 | rozdz. 7, „Wynik przy genach historycznych 12 / 60 / 700" | wcześniejszy wariant weryfikacji; rozstrzygający jest wariant z genami z optimum, opisany wyżej w tym samym rozdziale |
 | rozdz. 6.4, tabela rozkładu wariancji | pomiar na 100 parach i starych definicjach metryk; wniosek potwierdzony nowszym wynikiem 77 % |
 | rozdz. 11 i 12 | zapis analizy, która doprowadziła do poprawek; podane tam liczby opisują stan sprzed zmian |
+| rozdz. 11.3, punkty 1 i 2 | opisane tam jako „POWAŻNE" rozbieżności są już **naprawione** — wzory (6) i (7) wdrożone |
 
 **Najważniejsze liczby aktualne:** korelacja balans–dynamizm **+0,586** · optimum `population_max`
 90–99, `populationToCreateNewUnit` 412–447, `minSpawnDistance` 10–13 · mapa wzorcowa **0,8475**
@@ -317,25 +318,19 @@ zmianie metryk z 0,0025 do 0,2051, czyli 82-krotnie.
 
 Pelne omowienie w `WSKAZOWKI_DO_PRACY.md` rozdz. 7.
 
-### Kontrola granic zakresow genow — wykonana
+### Kontrola granic zakresow genow — opis historyczny usunięty
 
-`test_granic_genow.py`, 14 konfiguracji x 60 meczow = 840 meczow, ok. 17 min. Dwa jednowymiarowe
-przemiaty wokol optimum, siegajace poza zadeklarowany genotyp.
+Ten fragment zawierał wcześniejszą wersję przemiatu granic genów, wykonaną na **poprzednim systemie
+oceny**, wraz z liczbami 0,8365 / 0,8410 i progiem istotności 0,0136. Sekcja „Wynik przemiatu poza
+granice zakresow genow" wyżej w tym samym pliku unieważnia tamte wartości: próg 0,0136 pochodził
+z nieaktualnej stałej szumu, a samo porównanie było wadliwe z trzech niezależnych powodów.
+Aktualne liczby są w tamtej sekcji. Dane: `granice_genow_wyniki.json`, omówienie
+w `WSKAZOWKI_DO_PRACY.md` rozdz. 8.
 
-- `population_max` 90–200 (granica GDD: 100): najlepszy w zakresie 0,8365 / 0,8367, najlepszy poza
-  zakresem 0,8410 / 0,8412. Roznica +0,0045 przy progu istotnosci 0,0136.
-- `populationToCreateNewUnit` 150–800 (granica GDD: 400): najlepszy w zakresie 0,8303 / 0,8312,
-  najlepszy poza zakresem 0,8385 / 0,8337. Roznica +0,0081 przy progu istotnosci 0,0136.
-
-**Wniosek: zakres genotypu obejmowal optimum.** Poza granicami ocena sie nasyca. Dodatkowo
-optimum lezy na **plaskowyzu**, nie w ostrym maksimum — 13 z 14 konfiguracji dostalo ocene
-0,82–0,84. Jedyny wyrazny spadek to `populationToCreateNewUnit` = 800 (dynamizm 0,5345).
-
-Najmocniejszy argument znaleziono jednak przez analize samej funkcji przystosowania: **sufit
-matematyczny wyjscia systemu rozmytego wynosi 0,8667**, a znalezione optimum osiaga 0,8365, czyli
-96,5 % tego sufitu. Nawet mapa idealna (wszystkie nierownowagi = 0) dalaby tylko +0,0302. Nie bylo
-wiec czego obcinac. Pelne omowienie w `WSKAZOWKI_DO_PRACY.md` rozdz. 8, dane:
-`granice_genow_wyniki.json`.
+Z tamtego fragmentu zachowuje ważność jeden argument, bo nie zależy od przemiatu: **sufit
+matematyczny wyjścia systemu rozmytego wynosi 0,8667**, a najlepsze znalezione rozwiązanie osiąga
+0,8418 balansu, czyli 97,1 % sufitu. Nawet mapa o zerowych nierównowagach dałaby niewiele więcej —
+nie było więc czego obcinać.
 
 ### Co zostało
 
@@ -412,31 +407,50 @@ Pełne omówienie w `WSKAZOWKI_DO_PRACY.md`. W skrócie:
    360 pol, wiec jedno przejecie to 3–7 % kontra 0,28 % mapy. Metryki normalizowane przez liczbe
    obiektow nie sa przenosne miedzy grami o roznej ziarnistosci mapy.
 
-2. **Balans i dynamizm w tej grze KOOPERUJĄ, a nie konkurują.** Korelacja ocen +0,54 do +0,60,
-   potwierdzona na trzech różnych zestawach metryk. W artykule były sprzeczne. Przyczyną jest
-   efekt kuli śnieżnej: przewaga terytorialna napędza gospodarkę ze współczynnikiem 1,14,
-   a w grze nie ma mechaniki powrotu. Mapy niezbalansowane są więc automatycznie nudne.
-   **To jest główny wynik pracy** — promotor zaakceptował go jako wniosek.
+2. **Balans i dynamizm w tej grze kooperują globalnie, a wymieniają się dopiero lokalnie.**
+   Korelacja ocen na losowej próbce z całej przestrzeni genotypu wynosi **+0,586** (starsze warianty
+   systemu dawały od +0,54 do +0,65). Dopiero w samym rejonie optimum, na froncie Pareto, korelacja
+   zmienia znak na **−0,574** — tam dalsza poprawa jednego kryterium kosztuje drugie.
+   W artykule cele są **„partially conflicting"**, przy czym konflikt występuje wyłącznie na górnym
+   końcu skali balansu; na dolnym końcu autorzy sami stwierdzają zbieżność. Nie pisz więc, że
+   „w artykule były sprzeczne". Przyczyną zbieżności jest u nas efekt kuli śnieżnej: przewaga
+   terytorialna napędza gospodarkę ze współczynnikiem 1,14, a gra nie ma mechaniki powrotu, więc
+   mapy niezbalansowane są automatycznie nudne. **To jest główny wynik pracy** — promotor
+   zaakceptował go jako wniosek.
 
 3. **Progi funkcji przynależności dobrane „na wyczucie" nie działają.** Przed kalibracją
    dynamizm rozróżniał mapy w zakresie 0,02 na skali 0–1; po kalibracji 0,70.
 
-4. **Mapa wyjaśnia tylko 12–53 % zmienności wyniku.** Reszta to losowość symulacji. Dlatego
-   ocena jednego chromosomu wymaga kilkudziesięciu meczów.
+4. **Mapa przesądza o wyniku, ale nie w pojedynczym meczu.** Najprostszy dowód pochodzi
+   z pomiaru na 300 parach: **w 232 parach (77 %) obie rozgrywki na tej samej mapie wygrał ten sam
+   bot**, przy 50 % oczekiwanych. Starszy rozkład wariancji (100 par, poprzednie definicje metryk)
+   dawał udział mapy 12–53 % w zależności od metryki — jest zgodny z powyższym, ale to pomiar
+   historyczny. Tak czy inaczej ocena jednego chromosomu wymaga kilkudziesięciu meczów.
 
-5. **Analiza statystyczna wykryła dwie wady niewidoczne w kodzie**: przewagę pozycyjną bazy nr 1
-   i fałszywe raportowanie remisów.
+5. **Analiza statystyczna wykryła cztery wady niewidoczne w kodzie**: przewagę pozycyjną bazy
+   nr 1, fałszywe raportowanie remisów, traktowanie meczów w parze jako niezależnych obserwacji
+   oraz fałszywy alarm „zakres obciął optimum" w teście granic genów.
 
-6. **Front Pareto zapadł się do jednego punktu**, a jego pozorna szerokość to szum pomiarowy.
-   Jest to bezposrednia konsekwencja punktu 2 i sam w sobie wynik wart opisania.
+6. **Front Pareto jest wąski, ale ma kształt.** Pięć rozwiązań niezdominowanych, rozpiętość
+   przekracza szum pomiarowy 1,24× w balansie i 1,44× w dynamizmie, a korelacja obu ocen na samym
+   froncie wynosi −0,574: rozwiązanie o najlepszym balansie ma najsłabszy dynamizm i odwrotnie.
+   Jest to dokładnie ten kształt, który opisali autorzy artykułu — łagodny spadek dynamizmu przy
+   rosnącym balansie. **Nie pisz już, że front zapadł się do jednego punktu**; tak było przed
+   poprawką metryk, gdy rozpiętość wynosiła 0,12 odchylenia. Efekt jest słaby (przekonujące byłoby
+   około 2 odchyleń), więc opisuj go jako uporządkowanie na granicy rozdzielczości pomiaru.
 
-7. **Optimum to plaskowyz, a nie szczyt.** Przemiat poza granicami zakresow genow pokazal, ze
-   caly rejon `population_max` >= 100 i `populationToCreateNewUnit` <= 500 daje oceny
-   nierozroznialne statystycznie. Zalecenie projektowe jest wiec odporne, a nie wyostrzone.
+7. **Optimum to płaskowyż, a nie szczyt.** Przemiat poza granicami zakresów genów, powtórzony na
+   aktualnych metrykach, nie wykrył istotnej poprawy: `population_max` +0,0057 balansu (0,77 σ)
+   i +0,0116 dynamizmu (1,44 σ), `populationToCreateNewUnit` +0,0019 (0,24 σ) i +0,0110 (1,30 σ).
+   Zalecenie projektowe jest więc odporne, a nie wyostrzone. Zastrzeżenie: powyżej
+   `population_max` ≈ 140 dynamizm dobija do sufitu 0,8667, więc kryterium jest tam ślepe
+   z konstrukcji i „brak poprawy" nie znaczy „nie ma poprawy".
 
-8. **Skala oceny rozmytej jest silnie scisnieta u gory.** Sufit wyjscia wynosi 0,8667, a rejon
-   optimum osiaga 0,8365. Prawie cala zdolnosc rozrozniania systemu miesci sie w waskiej strefie
-   przejscia miedzy ocena 0,5 a 0,83. To ograniczenie metody, o ktorym trzeba napisac uczciwie.
+8. **Skala oceny rozmytej jest silnie ściśnięta u góry.** Sufit wyjścia wynosi 0,8667, a najlepsze
+   osiągnięte wartości to 0,8418 balansu (97,1 % sufitu) i 0,8664 dynamizmu (100,0 %). Dynamizm
+   nasyca się: 118 z 408 chromosomów osiągnęło co najmniej 0,860, podczas gdy balans przekroczył
+   0,840 tylko trzykrotnie. Prawie cała zdolność rozróżniania mieści się w wąskiej strefie przejścia
+   między oceną 0,5 a 0,83. To ograniczenie metody, o którym trzeba napisać uczciwie.
 
 ---
 

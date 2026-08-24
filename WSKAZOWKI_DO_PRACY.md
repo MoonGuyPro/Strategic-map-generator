@@ -16,9 +16,11 @@ Trzy rzeczy, których nie da się przeczytać w artykule, a które masz zmierzon
    przedefiniować albo wycofać, bo w tej mechanice mierzyły co innego, niż zakładali autorzy.
 2. **Progi funkcji przynależności wzięte „z sensu" nie działają.** Zanim je skalibrowałeś,
    kryterium dynamizmu rozróżniało mapy w zakresie 0,02 na skali 0–1. Po kalibracji — 0,70.
-3. **Balans i dynamizm w tej grze nie są sprzeczne, tylko idą w parze.** W artykule są „partially
+3. **Balans i dynamizm w tej grze kooperują globalnie, a wymieniają się dopiero lokalnie.** Na
+   losowej próbce z całej przestrzeni genotypu korelacja ocen wynosi +0,586; dopiero na froncie
+   Pareto, czyli w samym rejonie optimum, zmienia znak na −0,574. W artykule cele są „partially
    conflicting", i to wyłącznie na górnym końcu skali balansu — dokładne sformułowanie i cytaty
-   w rozdz. 5.
+   w rozdz. 5, kształt frontu w rozdz. 8.
 
 To nie są porażki wdrożenia. To są wyniki badawcze i wokół nich zbudowałbym całą pracę.
 
@@ -332,10 +334,12 @@ korelacja między nimi +0,616, zakres ocen bez zmian — jest w rozdz. 4.6.
 Pełny bilans przeniesienia wszystkich metryk — co identyczne, co zmienione, co dodane —
 w **rozdz. 4.5**. Jest to gotowe podsumowanie rozdziału metodologicznego pracy.
 
-**Wyniki NSGA-II wymagają powtórzenia.** Oceny z dotychczasowego przebiegu liczone są starymi
-wzorami metryk, starymi progami i starą bazą reguł, więc nie są porównywalne z obecnym systemem.
-Optimum najprawdopodobniej się nie przesunie — wyznaczają je metryki balansu, których wzory się nie
-zmieniły, a przemiat granic pokazał szeroki płaskowyż — ale trzeba to pokazać, a nie założyć.
+**Wyniki NSGA-II zostały powtórzone na tym systemie — zrobione.** Przewidywanie z tego akapitu się
+sprawdziło: optimum nie przesunęło się mimo zmiany dwóch wzorów metryk, przeliczenia wszystkich
+progów i usunięcia jednego wejścia dynamizmu. Nowy przebieg to 408 ocenionych konfiguracji, front
+z 5 rozwiązaniami, geny 90–99 / 412–447 / 10–13. Szczegóły w rozdz. 8. Warto to opisać właśnie jako
+sprawdzone przewidywanie, bo pokazuje, że wniosek projektowy jest odporny na szczegóły konstrukcji
+funkcji oceny.
 
 ### 4.4. Bitwy polowe i zmiany prowadzenia — dwie próby dodania trzeciego wymiaru
 
@@ -663,14 +667,23 @@ którego zależy istnienie kompromisu**. Wersja do rozwinięcia w rozdziale z wn
 > terytorialna napędza gospodarkę ze współczynnikiem 1,14, a gra nie zawiera żadnej mechaniki
 > wyrównywania szans, więc każda przewaga narasta. Mapa niezbalansowana rozstrzyga się szybko
 > i jednostronnie, czyli jest nudna; mapa zbalansowana daje długą, wyrównaną wojnę, czyli jest
-> dynamiczna. Zmierzona korelacja obu ocen wynosi od +0,54 do +0,60 i jest stabilna na trzech
-> niezależnych zestawach metryk.
+> dynamiczna. Zmierzona korelacja obu ocen na losowej próbce z całej przestrzeni genotypu wynosi
+> **+0,586** i utrzymuje się w przedziale od +0,54 do +0,65 niezależnie od wariantu systemu oceny.
+>
+> Zbieżność ta jest własnością **całej** przestrzeni parametrów, nie zaś jej najlepszego zakątka.
+> Na samym froncie Pareto, gdzie oba kryteria są już blisko swoich maksimów, korelacja zmienia znak
+> na −0,574: rozwiązanie o najwyższym balansie ma najsłabszy dynamizm i odwrotnie. Kompromis
+> pojawia się więc dopiero lokalnie i jest słaby — rozpiętość frontu przekracza szum pomiarowy
+> zaledwie 1,2–1,4-krotnie — ale ma dokładnie ten kształt, który opisali autorzy artykułu:
+> łagodny spadek dynamizmu przy rosnącym balansie.
 >
 > Wniosek ogólny: **relacja między balansem a dynamizmem nie jest własnością metody oceny, lecz
-> mechaniki gry.** Kompromis między tymi celami istnieje tylko wtedy, gdy zasady gry dopuszczają
-> osiągnięcie równowagi przez bezczynność. W grach z wymuszoną ekspansją, silnym efektem kuli
-> śnieżnej i bez mechanizmu powrotu do gry oba cele są zbieżne, wielokryterialność traci
-> uzasadnienie, a front Pareto zapada się do pojedynczego punktu.
+> mechaniki gry.** Kompromis między tymi celami rozciąga się na całą przestrzeń rozwiązań tylko
+> wtedy, gdy zasady gry dopuszczają osiągnięcie równowagi przez bezczynność. W grach z wymuszoną
+> ekspansją, silnym efektem kuli śnieżnej i bez mechanizmu powrotu do gry oba cele są zbieżne
+> niemal wszędzie, a wymieniają się dopiero na wąskim skraju przestrzeni, gdzie jedno i drugie
+> osiąga już swoje maksimum. Podejście wielokryterialne nie traci wtedy sensu całkowicie, ale jego
+> zysk sprowadza się do kilku rozwiązań leżących na granicy rozdzielczości pomiaru.
 
 Tak postawiona teza nie jest kontrą do artykułu, tylko jego **uogólnieniem**: podaje warunek
 brzegowy, przy którym wynik autorów zachodzi, i pokazuje grę, w której ten warunek jest niespełniony.
@@ -1455,7 +1468,8 @@ powyżej 650 nie ma sensu projektowego.
 | Reconquering wg wzoru (6) z artykułu | 0,0006–0,0036 na turę, przy progu WYSOKI = 0,1 |
 | Reguł w bazie balansu | 27 (komplet 3³) |
 | Reguł w bazie dynamizmu | 6 (2 × 3), po przeniesieniu punktów kulminacyjnych do diagnostyki |
-| Błąd średniej przy 20 meczach | terytorium ±2,0 · gospodarka ±2,5 · odbijanie ±9,7 |
+| Błąd oceny przy 60 meczach (aktualny system) | balans ±0,0102 · dynamizm ±0,0111 |
+| Błąd średniej przy 20 meczach (pomiar historyczny) | terytorium ±2,0 · gospodarka ±2,5 · odbijanie ±9,7 |
 
 **Progi funkcji przynależności — wersja aktualna** (kwantyl 25 % / mediana / kwantyl 75 % / maksimum,
 wszystkie z `pilotaz_wyniki.json`):
@@ -1493,11 +1507,16 @@ wszystkie z `pilotaz_wyniki.json`):
   spójnych lądów o zaplanowanym kształcie. To uczciwe ograniczenie i naturalny kierunek rozwoju.
 
 - **Rozdziel „nie wykryto" od „nie ma".** Przy każdym wyniku nieistotnym statystycznie podaj, jak
-  duży efekt test w ogóle był w stanie wykryć. Dla przewagi pierwszego ruchu przy 192 meczach była
-  to granica 57 % — poniżej niej test jest ślepy.
+  duży efekt test w ogóle był w stanie wykryć. Dla przewagi pierwszego ruchu przy 300 parach jest
+  to granica **53,1 %** — poniżej niej test jest ślepy. (Poprzedni pomiar na 100 parach wykrywał
+  dopiero 57 %.) Ta sama zasada dotyczy przemiatu granic genów: powyżej `population_max` ≈ 140
+  dynamizm dobija do sufitu, więc test nie wykryłby poprawy, nawet gdyby zachodziła.
 
-- **Sprawdź, czy metryka nie mierzy przy okazji długości meczu.** Zmiany prowadzenia zostały
-  znormalizowane na 100 tur, ale Reconquering Rate nie — szczegóły i test w rozdz. 11.3, punkt 1.
+- **Obie metryki dynamizmu są znormalizowane przez długość meczu — sprawdzone.** Zmiany prowadzenia
+  liczone są na 100 tur, a Reconquering Rate od wdrożenia wzoru (6) jest średnią na turę. Przed tą
+  poprawką metryka rosła wprost z długością meczu (korelacja +0,72 z liczbą tur) i groziło to
+  zawyżeniem wyniku głównego. Test na danych pilotażowych pokazał, że normalizacja wyniku nie
+  osłabia — szczegóły w rozdz. 11.3, punkt 1. Przy każdej nowej metryce zadaj to samo pytanie.
 
 - **Opisz sufit i ściśnięcie skali ocen.** Wyjście systemu rozmytego nie sięga 1,0 — sufit to
   0,8667, bo defuzyfikacja środkiem ciężkości uśrednia po trójkącie WYSOKI. Prawie cała zdolność
@@ -1517,6 +1536,12 @@ wszystkie z `pilotaz_wyniki.json`):
 ---
 
 ## 11. Pełna lektura artykułu źródłowego — co z niej wynika
+
+> **Jak czytać ten rozdział.** Powstał z lektury artykułu i opisuje stan **sprzed** poprawek.
+> Obie rozbieżności oznaczone w rozdz. 11.3 jako „POWAŻNE" — brak normalizacji wskaźnika odbijania
+> i inny wzór punktów kulminacyjnych — zostały już **naprawione w kodzie**: wzory (6) i (7) są
+> wdrożone. Zachowano je, bo dokumentują rozumowanie i zawierają testy, których nie ma nigdzie
+> indziej. Podrozdział 11.5 zaktualizowano do wyników nowego przebiegu NSGA-II.
 
 Przeczytany w całości: **Lara-Cabrera R., Cotta C., Fernández-Leiva A.J., *On Balance and Dynamism in
 Procedural Content Generation with Self-Adaptive Evolutionary Algorithms*, Natural Computing, 2014.**
@@ -1693,18 +1718,29 @@ Powie więc: front Pareto jest wąski nie dlatego, że cele kooperują, tylko dl
 trzyparametrowa przestrzeń przeszukiwania jest za uboga, by wyrazić jakikolwiek kompromis. To jest
 mocny zarzut i trzeba na niego odpowiedzieć wprost, a nie go przemilczeć.
 
-Trzy argumenty, którymi dysponujemy, w kolejności od najmocniejszego:
+**Po nowym przebiegu NSGA-II ten zarzut osłabł sam z siebie i odpowiedź na niego jest dziś inna niż
+przed poprawką metryk.** Wcześniej broniliśmy się tym, że front w ogóle nie istnieje; teraz front
+istnieje i ma kształt, więc argument odwraca się na naszą korzyść.
 
-1. **Korelacja +0,54 do +0,60 została zmierzona na 50 losowych konfiguracjach pokrywających całą
-   przestrzeń genotypu, a nie na froncie.** Jest to własność danych, całkowicie niezależna od tego,
-   jak działa NSGA-II i jak szeroki jest front. Nawet gdyby algorytm nie znalazł nic sensownego,
-   ta korelacja pozostaje faktem.
-2. **Szerokość frontu jest mniejsza od szumu pomiarowego** (0,0072 wobec odchylenia 0,0068 na 102
-   chromosomach z tego samego rejonu). Front nie jest więc wąski — on w ogóle nie istnieje jako
-   zbiór rozróżnialnych kompromisów.
+Trzy argumenty, w kolejności od najmocniejszego:
+
+1. **Kompromis pojawił się mimo trzech genów.** Front zawiera 5 rozwiązań uporządkowanych
+   monotonicznie, o korelacji ocen −0,574 i rozpiętości przekraczającej szum 1,24× w balansie oraz
+   1,44× w dynamizmie. Twierdzenie „ta przestrzeń jest za uboga, by wyrazić jakikolwiek kompromis"
+   jest więc obalone bezpośrednio przez wynik: kompromis się wyraził. Można co najwyżej twierdzić,
+   że przy bogatszym genotypie byłby szerszy — a z tym się zgadzamy i piszemy o tym w ograniczeniach.
+2. **Korelacja +0,586 została zmierzona na 50 losowych konfiguracjach pokrywających całą przestrzeń
+   genotypu, a nie na froncie.** Jest to własność danych, całkowicie niezależna od tego, jak działa
+   NSGA-II i jak szeroki jest front. Nawet gdyby algorytm nie znalazł nic sensownego, ta korelacja
+   pozostaje faktem.
 3. **Mechanizm jest opisany i niezależny od parametryzacji**: wymuszona ekspansja, brak strategii
    pasywnej, współczynnik kuli śnieżnej 1,14, brak mechaniki powrotu do gry. Żadna wartość trzech
    genów tego nie zmienia.
+
+Warto przy tym uczciwie dodać, że zmierzona rozpiętość frontu w dynamizmie jest **wartością dolną**:
+oba wejścia dynamizmu nasycają się w rejonie optimum, a 118 z 408 chromosomów dobiło do sufitu skali.
+Gdyby skala sięgała dalej, kompromis mógłby okazać się szerszy — co znów działa przeciwko zarzutowi,
+a nie na jego korzyść.
 
 Do tego dopisz uczciwe ograniczenie: **niska wymiarowość genotypu jest realnym ograniczeniem pracy**
 i nie da się wykluczyć, że przy chromosomie kodującym mapę bezpośrednio — jak w artykule — udałoby
