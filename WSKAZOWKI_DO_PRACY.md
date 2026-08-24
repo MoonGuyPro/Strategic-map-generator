@@ -279,41 +279,42 @@ obu wersji na tym samym generatorze. Jest to zarazem **ilościowe rozwinięcie t
 napisali** — że ich definicja dynamizmu „implicitly incorporates a component of balance via the
 peak-difference variables". My tę zawartość zmierzyliśmy: +0,93.
 
-### 4.3.1. Problem, który to rodzi — i podjęta decyzja (wariant C, wdrożony)
+### 4.3.1. Problem, który to rodzi — i podjęta decyzja: punkty kulminacyjne wychodzą z systemu
 
 Skoro pik koreluje z nierównowagą terytorialną na +0,93, a nierównowaga terytorialna jest wejściem
 BALANSU, to trzymanie pika wśród wejść DYNAMIZMU sprawia, że **dynamizm częściowo mierzy balans**.
 Korelacja obu ocen — czyli wynik główny pracy — byłaby wtedy po części wytworzona przez konstrukcję
 systemu, a nie przez mechanikę gry. Recenzent postawi ten zarzut i trzeba mieć na niego liczby.
 
-Policzone na nowym pilotażu, te same progi, trzy warianty bazy reguł dynamizmu:
+Rozważono trzy możliwości i policzono każdą na nowym pilotażu, przy tych samych progach:
 
-| wariant | zakres ocen | korelacja z BALANSEM |
-|---|---|---:|
-| A — pik pożądany ŚREDNI (ówczesna baza 18 reguł) | 0,156–0,833 | +0,651 |
-| B — pik pożądany NISKI (zgodnie z pomiarem) | 0,156–0,833 | **+0,834** |
-| C — **bez pika**, tylko zmiany prowadzenia × reconquering | 0,147–0,865 | **+0,586** |
+| co zrobić z punktami kulminacyjnymi | baza reguł | zakres ocen | korelacja z BALANSEM |
+|---|---|---|---:|
+| **zostawić jako wejście, wartość pożądana ŚREDNIA** — tak było dotychczas | 18 reguł (2 × 3 × 3) | 0,156–0,833 | +0,651 |
+| **zostawić jako wejście, ale odwrócić kierunek na NISKI** — zgodnie z tym, co pokazał pomiar | 18 reguł (2 × 3 × 3) | 0,156–0,833 | **+0,834** |
+| **usunąć z wejść dynamizmu** i przenieść do metryk diagnostycznych, zostawiając zmiany prowadzenia i wskaźnik odbijania | 6 reguł (2 × 3) | 0,147–0,865 | **+0,586** |
 
-**Najważniejsze: wynik główny przeżywa usunięcie pika.** Nawet w wariancie C, gdzie dynamizm nie ma
+**Najważniejsze: wynik główny przeżywa usunięcie pika.** Nawet w wersji, w której dynamizm nie ma
 żadnego wspólnego wejścia z balansem i nie zawiera niczego, co mierzyłoby nierównowagę, korelacja
 wynosi **+0,586**. Zbieżność celów nie jest artefaktem konstrukcji systemu rozmytego. To jest
 odpowiedź na najgroźniejszy zarzut wobec całej pracy i trzeba ją umieścić w rozdziale z wynikami.
 
-Wariant B odpada właśnie dlatego, że jest najwyższy: +0,834 bierze się stąd, że pik z odwróconym
-kierunkiem staje się po prostu czwartą metryką balansu. Byłoby to mierzenie balansu dwa razy
-i nazywanie tego zbieżnością celów.
+Druga możliwość — odwrócenie kierunku metryki — odpada właśnie dlatego, że daje najwyższą wartość:
++0,834 bierze się stąd, że pik z odwróconym kierunkiem staje się po prostu czwartą metryką balansu.
+Byłoby to mierzenie balansu dwa razy i nazywanie tego zbieżnością celów.
 
-**Wdrożono wariant C**, opierając się na trzech niezależnych przesłankach: korelacji +0,930
-z nierównowagą terytorialną, ujemnych korelacjach z odbijaniem i bitwami oraz paradoksie mapy
-kontrolnej z bazami obok siebie (rozdz. 7). Uzasadnienie jest dokładnie tej samej natury co przy
-Conquering Rate
+**Wdrożono trzecią możliwość: punkty kulminacyjne przestały być wejściem kryterium dynamizmu
+i pełnią odtąd rolę metryki diagnostycznej — nadal są liczone i raportowane, ale nie wpływają na
+ocenę.** Decyzję oparto na trzech niezależnych przesłankach: korelacji +0,930 z nierównowagą
+terytorialną, ujemnych korelacjach z odbijaniem i bitwami oraz paradoksie mapy kontrolnej z bazami
+obok siebie (rozdz. 7). Uzasadnienie jest dokładnie tej samej natury co przy Conquering Rate
 (rozdz. 4.2): metryka nie jest własnością metody, tylko relacją między metodą a mechaniką gry.
 W Planet Wars pik mierzył zwroty akcji, bo tam powroty się zdarzały. Tutaj mierzy dominację, więc
 jako wejście dynamizmu jest nie tylko bezużyteczny, ale wręcz szkodliwy — zaciera granicę między
 dwoma kryteriami. Przenosimy go do metryk diagnostycznych, obok bitew polowych, i **raportujemy
 w pracy jako mierzony, lecz nieużywany**.
 
-Cena wariantu C: dynamizm zostaje z dwoma wejściami i bazą 6 reguł zamiast 18. Opisz to uczciwie
+Cena tej decyzji: dynamizm zostaje z dwoma wejściami i bazą 6 reguł zamiast 18. Opisz to uczciwie
 i pokaż, że baza nadal jest kompletna (2 × 3 kombinacje). Argument, że dwa wejścia wystarczą —
 korelacja między nimi +0,616, zakres ocen bez zmian — jest w rozdz. 4.6.
 
@@ -369,8 +370,9 @@ Wniosek metodologiczny: w tej grze trudno znaleźć miarę dynamizmu niezależn�
 
 Poniżej to samo w rozbiciu na „identyczne z artykułem", „inne" i „dodane od siebie".
 
-Zakłada wariant C z rozdz. 4.3.1. To jest tabela, którą recenzent przeczyta najuważniej, więc każda
-pozycja ma podane uzasadnienie i miejsce, gdzie stoi dowód.
+Zestawienie uwzględnia decyzję z rozdz. 4.3.1, czyli przeniesienie punktów kulminacyjnych do metryk
+diagnostycznych. To jest tabela, którą recenzent przeczyta najuważniej, więc każda pozycja ma podane
+uzasadnienie i miejsce, gdzie stoi dowód.
 
 #### 4.5.1. Co jest identyczne
 
@@ -405,7 +407,7 @@ Trzy z trzech metryk **balansu** przeniosły się bez zmian koncepcyjnych.
 
 | element | opis | po co |
 |---|---|---|
-| **Zmiany prowadzenia na 100 tur** | liczba przejęć prowadzenia terytorialnego, znormalizowana do długości meczu | w artykule nie ma takiej zmiennej. Jest za to **słowna definicja dynamizmu** — gracz, który „is at a disadvantage at a certain point can regain their position" — którą autorzy zoperacjonalizowali przez piki. My operacjonalizujemy ją wprost. W wariancie C jest to **jedyne wejście dynamizmu niezależne od balansu** |
+| **Zmiany prowadzenia na 100 tur** | liczba przejęć prowadzenia terytorialnego, znormalizowana do długości meczu | w artykule nie ma takiej zmiennej. Jest za to **słowna definicja dynamizmu** — gracz, który „is at a disadvantage at a certain point can regain their position" — którą autorzy zoperacjonalizowali przez piki. My operacjonalizujemy ją wprost. Po przeniesieniu punktów kulminacyjnych do diagnostyki jest to **jedyne wejście dynamizmu niezależne od balansu** |
 | **Bitwy polowe** | liczba starć token vs token | metryka diagnostyczna; pokazuje, że dynamizm da się mierzyć również zdarzeniami militarnymi (korelacja +0,985 z odbijaniem, czyli praktycznie ta sama informacja — i to też jest wynik) |
 | **Kalibracja empiryczna progów** | badanie pilotażowe, kwantyle, punkt nasycenia na maksimum rozkładu | cały etap metodologiczny, którego w artykule nie ma. Bez niego kryterium dynamizmu rozróżniało mapy w zakresie 0,02 na skali 0–1 |
 | **Bramki poprawności** | oddzielenie „czy wynik w ogóle wolno oceniać" od „jak dobry jest" | u autorów obie funkcje pełniły te same zmienne rozmyte; rozdzielenie wykryło mapę, którą system inaczej oceniłby najwyżej (rozdz. 7) |
@@ -584,7 +586,8 @@ To będzie najczęściej cytowane zdanie z Twojej pracy.
 
 **Zmierzona korelacja ocen: od +0,54 do +0,65**, zależnie od zestawu metryk i wersji systemu.
 Sprawdzone na kilku niezależnych konfiguracjach — wynik jest stabilny. **Na aktualnym systemie
-(wzory (6) i (7) z artykułu, wariant C, progi z pilotażu 50 × 60 meczów) wynosi +0,586** i to jest
+(wzory (6) i (7) z artykułu, punkty kulminacyjne poza systemem oceny, progi z pilotażu
+50 × 60 meczów) wynosi +0,586** i to jest
 liczba do podania w pracy. Wartość +0,651 pochodzi z wersji, w której punkty kulminacyjne były
 jeszcze wejściem dynamizmu — patrz rozdz. 4.3.1.
 
@@ -684,7 +687,8 @@ zaledwie 1,2–1,4 odchylenia standardowego szumu pomiarowego (rozdz. 8). Nie uk
 wyjaśnij: jest to bezpośrednie następstwo zbieżności celów.
 
 **Ale nie pisz już, że front zapadł się do punktu.** Po poprawieniu metryk (wzory 6 i 7 z artykułu,
-wariant C) front zaczął wykazywać uporządkowanie: korelacja obu ocen na samym froncie wynosi −0,574,
+oraz przeniesieniu punktów kulminacyjnych do diagnostyki) front zaczął wykazywać uporządkowanie:
+korelacja obu ocen na samym froncie wynosi −0,574,
 rozwiązanie o najlepszym balansie ma najsłabszy dynamizm i odwrotnie. Poprawne sformułowanie brzmi
 więc: **cele kooperują globalnie, a wymieniają się dopiero lokalnie, w samym rejonie optimum**, gdzie
 oba są już blisko swoich maksimów. Podejście wielokryterialne nie degeneruje się całkowicie — daje
@@ -1001,8 +1005,8 @@ Zestawienie poniżej zachowano, bo pokazuje zachowanie systemu przy parametrach 
 i to na nim opiera się kilka wniosków z dalszej części rozdziału.
 
 
-Przebieg powtórzony na **poprawionym systemie** (wzory 6 i 7 z artykułu, wariant C, progi z pilotażu
-50 × 60 meczów). Pięć trybów × 60 meczów = 300 meczów. Dane: `mapy_kontrolne_wyniki.json`.
+Przebieg powtórzony na **poprawionym systemie**: wzory (6) i (7) z artykułu, punkty kulminacyjne
+przeniesione do metryk diagnostycznych, progi z pilotażu 50 × 60 meczów. Pięć trybów × 60 meczów = 300 meczów. Dane: `mapy_kontrolne_wyniki.json`.
 
 | tryb mapy | teryt % | growth % | mil % | reconq | peaks % | conq % | BALANS | DYNAMIZM |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -1101,7 +1105,8 @@ po kilkudziesięciu turach i nikt nie zdąży się rozwinąć, metryka mierzy pr
 szum z pierwszych tur. W Planet Wars problem też istnieje, ale tam mecze trwają dostatecznie długo,
 by faza początkowa przestała dominować.
 
-Jest to trzeci, niezależny argument za wariantem C z rozdz. 4.3.1 — obok korelacji +0,930
+Jest to trzeci, niezależny argument za usunięciem tej metryki z wejść dynamizmu (rozdz. 4.3.1) —
+obok korelacji +0,930
 z nierównowagą terytorialną i ujemnych korelacji z odbijaniem oraz bitwami.
 
 ### Co weryfikacja wykryła w samym systemie oceny
@@ -1157,8 +1162,8 @@ rzędu 0,6–0,7 byłby bardzo mocnym argumentem.
 
 ## 8. Wynik główny eksperymentu — NSGA-II
 
-Przebieg wykonany na **poprawionym systemie metryk** (wzory 6 i 7 z artykułu, wariant C, progi
-z pilotażu 50 × 60 meczów). Populacja 20, 25 pokoleń, 60 meczów na ocenę chromosomu,
+Przebieg wykonany na **poprawionym systemie metryk**: wzory (6) i (7) z artykułu, punkty
+kulminacyjne poza systemem oceny, progi z pilotażu 50 × 60 meczów. Populacja 20, 25 pokoleń, 60 meczów na ocenę chromosomu,
 **408 ocenionych konfiguracji**, 11 godzin 45 minut, zero odrzuceń przez bramki poprawności.
 112 genotypów powtórzyło się i zostało pobranych z pamięci — sam ten fakt jest oznaką zbieżności.
 

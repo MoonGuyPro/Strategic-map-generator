@@ -157,7 +157,8 @@ Wszystko poniżej jest **wdrożone, przetestowane i opisane w GDD**.
       eksportowany jako „procent pól zmieniających właściciela na 100 tur"
 - [x] Metryka zmian prowadzenia (na 100 tur) jako wejście dynamizmu — jedyne niezależne od balansu
 - [x] Bitwy polowe mierzone jako metryka diagnostyczna (poza systemem rozmytym)
-- [x] **Peak Differences przeniesione do metryk diagnostycznych (wariant C)** — baza reguł
+- [x] **Peak Differences przeniesione do metryk diagnostycznych** — nadal liczone i raportowane,
+      ale nie sa juz wejsciem kryterium dynamizmu; baza reguł
       dynamizmu z 18 na 6, bez utraty rozdzielczosci ocen. Powod zmierzony: +0,930 z nierownowaga
       terytorialna, ujemnie z odbijaniem i bitwami
 - [x] Kalibracja progów na kwantylach — **przeliczona po zmianie metryk**, 50 konfiguracji × 60
