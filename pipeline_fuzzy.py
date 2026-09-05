@@ -48,23 +48,22 @@ balance = ctrl.Consequent(np.arange(0, 1.01, 0.01), 'balance')
 dynamism = ctrl.Consequent(np.arange(0, 1.01, 0.01), 'dynamism')
 
 
-def trojstanowa(zmienna, nazwa, gora):
-    """Zbiory LOW/MEDIUM/HIGH na kwantylach; WYSOKI nasyca sie dopiero przy maksimum z pilotazu."""
-    q25, med, q75, maks = PROGI[nazwa]
-    zmienna['low'] = fuzz.trimf(zmienna.universe, [0, 0, med])
-    zmienna['medium'] = fuzz.trimf(zmienna.universe, [q25, med, q75])
-    zmienna['high'] = fuzz.trapmf(zmienna.universe, [med, maks, gora, gora])
+def threestate(variable, name, universe_max):
+    q25, med, q75, maks = PROGI[name]
+    variable['low'] = fuzz.trimf(variable.universe, [0, 0, med])
+    variable['medium'] = fuzz.trimf(variable.universe, [q25, med, q75])
+    variable['high'] = fuzz.trapmf(variable.universe, [med, maks, universe_max, universe_max])
 
 
-# --- Metryki balansu: kazda kalibrowana na wlasnym rozkladzie ---
-trojstanowa(term_imbalance, 'term_imbalance', 100)
-trojstanowa(growth_imbalance, 'growth_imbalance', 100)
-trojstanowa(military_imbalance, 'military_imbalance', 100)
+# --- Metryki balansu --
+threestate(term_imbalance, 'term_imbalance', 100)
+threestate(growth_imbalance, 'growth_imbalance', 100)
+threestate(military_imbalance, 'military_imbalance', 100)
 
 # --- Metryki dynamizmu ---
-trojstanowa(reconq_rate, 'reconq_rate', RECONQ_MAX)
+threestate(reconq_rate, 'reconq_rate', RECONQ_MAX)
 
-# Zmiany prowadzenia (na 100 tur) maja dwa stany: im wiecej odwrocen losow, tym dynamiczniej
+# Zmiany prowadzenia (na 100 tur) maja dwa stany
 _ql25, _qlmed, _ql75, _qlmaks = PROGI['lead_rate']
 lead_rate['low'] = fuzz.trimf(lead_rate.universe, [0, 0, _ql75])
 lead_rate['high'] = fuzz.trapmf(lead_rate.universe, [_ql25, _qlmaks, LEAD_MAX, LEAD_MAX])
