@@ -135,27 +135,19 @@ PEAKS_DIAGNOSTYCZNE = True
 
 
 def _build_rules(table, antecedents, consequent, expected_count):
-    """Zamienia tabelę decyzyjną na listę reguł rozmytych i pilnuje jej kompletności.
-
-    Liczba wejść wynika z długości klucza w tabeli: balans ma trzy, dynamizm dwa.
-    """
     if len(table) != expected_count:
         raise ValueError(f"Baza reguł niekompletna: {len(table)}/{expected_count} kombinacji.")
     rules = []
-    for klucz, verdict in table.items():
-        warunek = antecedents[0][LVL[klucz[0]]]
-        for ant, poziom in zip(antecedents[1:], klucz[1:]):
-            warunek = warunek & ant[LVL[poziom]]
-        rules.append(ctrl.Rule(warunek, consequent[verdict]))
+    for key, verdict in table.items():
+        condition = antecedents[0][LVL[key[0]]]
+        for ant, level in zip(antecedents[1:], key[1:]):
+            condition = condition & ant[LVL[level]]
+        rules.append(ctrl.Rule(condition, consequent[verdict]))
     return rules
 
-
-# balans: trzy wejscia po trzy stany = 27 kombinacji
-# dynamizm: lead_rate ma dwa stany, reconq trzy = 2 * 3 = 6 kombinacji
 balance_rules = _build_rules(BALANCE_TABLE, [term_imbalance, growth_imbalance, military_imbalance], balance, 27)
 dynamism_rules = _build_rules(DYNAMISM_TABLE, [lead_rate, reconq_rate], dynamism, 6)
 
-# Kompilacja kontrolerów wnioskowania
 balance_ctrl = ctrl.ControlSystem(balance_rules)
 dynamism_ctrl = ctrl.ControlSystem(dynamism_rules)
 
