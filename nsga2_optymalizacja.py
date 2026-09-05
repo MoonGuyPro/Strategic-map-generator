@@ -49,15 +49,15 @@ import pipeline_fuzzy as pf
 TRYB_TESTOWY = len(sys.argv) > 1 and sys.argv[1].lower() == 'test'
 
 if TRYB_TESTOWY:
-    ROZMIAR_POPULACJI = 8
-    LICZBA_POKOLEN = 3
+    POPULATION_SIZE = 8
+    GENERATION_NUMBER = 3
 else:
-    ROZMIAR_POPULACJI = 20
-    LICZBA_POKOLEN = 25
+    POPULATION_SIZE = 20
+    GENERATION_NUMBER = 25
 
-ZIARNO = 1
+SEED = 1
 
-GENY = [
+GENES = [
     ('minSpawnDistance', 8, 18),
     ('population_max', 20, 100),
     ('populationToCreateNewUnit', 400, 1000),
@@ -73,7 +73,7 @@ PUNKT_ODNIESIENIA = np.array([0.0, 0.0])
 
 
 def przepis_z_genow(klucz):
-    return {nazwa: int(wartosc) for (nazwa, _, _), wartosc in zip(GENY, klucz)} | {'mapMode': 0}
+    return {nazwa: int(wartosc) for (nazwa, _, _), wartosc in zip(GENES, klucz)} | {'mapMode': 0}
 
 
 class ProblemGeneratoraMap(Problem):
@@ -81,10 +81,10 @@ class ProblemGeneratoraMap(Problem):
 
     def __init__(self):
         super().__init__(
-            n_var=len(GENY),
+            n_var=len(GENES),
             n_obj=2,
-            xl=np.array([lo for _, lo, _ in GENY]),
-            xu=np.array([hi for _, _, hi in GENY]),
+            xl=np.array([lo for _, lo, _ in GENES]),
+            xu=np.array([hi for _, _, hi in GENES]),
             vtype=int,
         )
         self.pamiec = {}          # klucz genow -> surowe metryki
@@ -122,7 +122,7 @@ class ProblemGeneratoraMap(Problem):
         out['F'] = np.array(F)
 
 
-class ZapisPostepu(Callback):
+class SaveProgress(Callback):
     """Po kazdym pokoleniu zapisuje stan, zeby przerwanie nie kosztowalo calego przebiegu."""
 
     def __init__(self, problem):
@@ -159,7 +159,7 @@ class ZapisPostepu(Callback):
 
 
 def main():
-    ocen_lacznie = ROZMIAR_POPULACJI * (LICZBA_POKOLEN + 1)
+    ocen_lacznie = POPULATION_SIZE * (GENERATION_NUMBER + 1)
     meczow = ocen_lacznie * pf.MECZOW_NA_CHROMOSOM
     godzin = meczow * 1.2 / 3600
 
@@ -168,39 +168,39 @@ def main():
     if TRYB_TESTOWY:
         print('TRYB TESTOWY - sprawdzenie, czy caly lancuch dziala')
     print('=' * 78)
-    print(f'  populacja:        {ROZMIAR_POPULACJI}')
-    print(f'  pokolenia:        {LICZBA_POKOLEN}')
+    print(f'  populacja:        {POPULATION_SIZE}')
+    print(f'  pokolenia:        {GENERATION_NUMBER}')
     print(f'  meczow na ocene:  {pf.MECZOW_NA_CHROMOSOM}')
     print(f'  ocen maksymalnie: {ocen_lacznie}  (mniej, jesli powtorza sie genotypy)')
     print(f'  meczow lacznie:   ~{meczow}')
     print(f'  szacowany czas:   ~{godzin:.1f} h')
     print()
-    for nazwa, lo, hi in GENY:
+    for nazwa, lo, hi in GENES:
         print(f'  gen {nazwa:26} zakres {lo} - {hi}')
     print('=' * 78)
 
-    problem = ProblemGeneratoraMap()
+    issue = ProblemGeneratoraMap()
 
-    algorytm = NSGA2(
-        pop_size=ROZMIAR_POPULACJI,
+    algorithm = NSGA2(
+        pop_size=POPULATION_SIZE,
         sampling=IntegerRandomSampling(),
         crossover=SBX(prob=0.9, eta=15, vtype=float, repair=RoundingRepair()),
-        mutation=PM(prob=1.0 / len(GENY), eta=20, vtype=float, repair=RoundingRepair()),
+        mutation=PM(prob=1.0 / len(GENES), eta=20, vtype=float, repair=RoundingRepair()),
         eliminate_duplicates=True,
     )
 
-    wynik = minimize(
-        problem,
-        algorytm,
-        termination=('n_gen', LICZBA_POKOLEN),
-        seed=ZIARNO,
-        callback=ZapisPostepu(problem),
+    summary = minimize(
+        issue,
+        algorithm,
+        termination=('n_gen', GENERATION_NUMBER),
+        seed=SEED,
+        callback=SaveProgress(issue),
         verbose=False,
         save_history=False,
     )
 
-    X = np.atleast_2d(wynik.X)
-    F = np.atleast_2d(wynik.F)
+    X = np.atleast_2d(summary.X)
+    F = np.atleast_2d(summary.F)
     front = []
     for x, f in zip(X, F):
         klucz = tuple(int(round(v)) for v in x)
@@ -208,13 +208,13 @@ def main():
             'geny': przepis_z_genow(klucz),
             'balans': float(-f[0]),
             'dynamizm': float(-f[1]),
-            'metryki': problem.pamiec[klucz],
+            'metryki': issue.pamiec[klucz],
         })
     front.sort(key=lambda r: -r['balans'])
 
     with open(PLIK_FRONTU, 'w', encoding='utf-8') as f:
-        json.dump({'front': front, 'ocen_wykonanych': len(problem.pamiec),
-                   'historia': problem.historia}, f, indent=1)
+        json.dump({'front': front, 'ocen_wykonanych': len(issue.pamiec),
+                   'historia': issue.historia}, f, indent=1)
 
     with open(PLIK_CSV, 'w', encoding='utf-8', newline='') as f:
         f.write('minSpawnDistance;population_max;populationToCreateNewUnit;balans;dynamizm;'
@@ -231,7 +231,7 @@ def main():
     print()
     print('=' * 96)
     print(f'FRONT PARETO — {len(front)} rozwiazan niezdominowanych '
-          f'(ocenionych chromosomow: {len(problem.pamiec)})')
+          f'(ocenionych chromosomow: {len(issue.pamiec)})')
     print('=' * 96)
     print(f"{'#':>3} {'spawnDist':>10}{'popMax':>8}{'unitCost':>10}"
           f"{'BALANS':>9}{'DYNAMIZM':>10}{'teryt%':>8}{'reconq%':>9}")
